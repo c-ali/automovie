@@ -37,6 +37,9 @@ print(f"Theme: {theme}. Prompts: {raw_prompts}.")
 raw_story = create_story(raw_prompts)
 split_story = remove_prefixes(raw_story)
 
+# Join the first two captions
+split_story = [split_story[0]+ " " + split_story[1]] + split_story[2:]
+
 print(f"Story: {raw_story}. Generating movie...")
 
 # %% First let us spawn a stable diffusion holder. Uncomment your version of choice.
@@ -81,8 +84,8 @@ for i in tqdm(range(len(list_prompts) - 1), desc="Total Progress"):
     )
 
     # Apply captions & save movie
-    apply_caption(lb, split_story[i+1], high_res=high_res)
-    lb.write_movie_transition(fp_movie_part, duration_single_trans, fps=fps)
+    apply_caption(lb, split_story[i], high_res=high_res)
+    lb.write_movie_transition(fp_movie_part, duration_single_trans*1.5 if i == 0 else duration_single_trans, fps=fps)
     parts.append(part_nr)
 
 
@@ -93,7 +96,11 @@ concatenate_movies(out_name, list_movie_parts)
 # Add sound (automusic from Youtube)
 recommended_song = create_music_recommendation(raw_story)
 youtube2mp3(recommended_song)
-
 input_video = ffmpeg.input('out.mp4')
 input_audio = ffmpeg.input('soundtrack.mp3')
-ffmpeg.concat(input_video, input_audio, v=1, a=1).output('final_movie.mp4').run()
+if os.path.exists("final_movie.mp4"):
+    os.remove("final_movie.mp4")
+(
+    ffmpeg.output(input_video, input_audio, 'final_movie.mp4',  shortest=None, vcodec='copy')
+    .run()
+)
