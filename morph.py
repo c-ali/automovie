@@ -21,7 +21,7 @@ import openai
 
 # Settings
 fps = 24
-num_prompts = 2
+num_prompts = 30
 duration_single_trans = 7
 depth_strength = 0.55  # Specifies how deep (in terms of diffusion iterations the first branching happens)
 
@@ -69,8 +69,8 @@ def split_after_n_chars(text, n=40):
         split_lines.append(line.strip())
 
     return split_lines
-def add_caption(img, caption, add_linebreaks=False):
-    # Write some Text
+def add_caption_to_frame(img, caption, add_linebreaks=True):
+    # Write some Text^
     font = cv2.FONT_HERSHEY_SIMPLEX
     bottomLeftCornerOfText = (15, 500)
     dy = 20
@@ -99,6 +99,11 @@ def add_caption(img, caption, add_linebreaks=False):
                         fontColor,
                         thickness,
                         lineType)
+def apply_caption(lb, caption, add_linebreaks=True):
+    for i in range(len(lb.tree_final_imgs)):
+        arr = lb.tree_final_imgs[i].copy()
+        add_caption_to_frame(arr, caption, add_linebreaks=add_linebreaks)
+        lb.tree_final_imgs[i] = arr
 
 theme = input("Please input the theme of the movie \n")
 openai.api_key = open("openai_apikey", "r").read()
@@ -109,7 +114,7 @@ prompts_req = openai.Completion.create(
     temperature=0.6,
     prompt=f"Create a list of {num_prompts} descriptive prompts for an image generation AI on the theme of {theme}."
            f" The prompts should tell a time coherent story where each image is related to the last and the next."
-           f" Separate the prompts by a newline",
+           f" Separate the prompts by a newline, each line begins with a number and then the prompt eg. 1. prompt1-text",
     max_tokens=2000,
 )
 
@@ -121,10 +126,10 @@ print(f"Theme: {theme}. Prompts: {raw_prompts}.")
 story_req = openai.Completion.create(
     model="gpt-3.5-turbo-instruct",
     temperature=0.6,
-    prompt=f"Tell a story matching the following prompts. Write two sentences for each prompt and output it as a list. {split_prompts}",
+    prompt=fr"Tell a story matching the following prompts. Turn each prompt in a sentence of the story and output in a list of similar length and format. \n {raw_prompts}",
     max_tokens=2000,
 )
-raw_story = prompts_req.choices[0].text
+raw_story = story_req.choices[0].text
 split_story = remove_prefixes(raw_story)
 
 print(f"Story: {raw_story}. Generating movie...")
@@ -147,6 +152,7 @@ out_name = "out.mp4"
 parts = []
 # Create transitions
 
+
 for i in range(len(list_prompts) - 1):
     # For a multi transition we can save some computation time and recycle the latents
     if i == 0:
@@ -168,11 +174,13 @@ for i in range(len(list_prompts) - 1):
     )
 
     # Save movie
+    apply_caption(lb, split_story[i+1])
     lb.write_movie_transition(fp_movie_part, duration_single_trans, fps=fps)
-    lb.write_imgs_transition(part_nr)
+    #lb.write_imgs_transition(part_nr)
     # list_movie_parts.append(fp_movie_part)
     parts.append(part_nr)
 
+'''
 # Add captions to the images
 cap_frames_dir = "cap_frames"
 os.makedirs(cap_frames_dir, exist_ok=True)
@@ -196,4 +204,3 @@ for part, caption in zip(parts, split_story):
 # Finally, concatente the result
 list_movie_parts = [f"{p}.mp4" for p in parts]
 concatenate_movies(out_name, list_movie_parts)
-    '''
