@@ -1,8 +1,8 @@
 from util import *
 # latent bleeding imports
-import torch
 from tqdm import tqdm
-
+import ffmpeg
+import torch
 torch.backends.cudnn.benchmark = False
 torch.set_grad_enabled(False)
 import warnings
@@ -30,12 +30,11 @@ openai.api_key = open("openai_apikey", "r").read()
 prompts_req = create_prompts(theme, num_prompts)
 
 # Create a story matching the prompts also using GPT
-raw_prompts = prompts_req.choices[0].text
+raw_prompts = create_prompts(theme, num_prompts)
 split_prompts = remove_prefixes(raw_prompts)
 print(f"Theme: {theme}. Prompts: {raw_prompts}.")
 
-story_req = create_story(raw_prompts)
-raw_story = story_req.choices[0].text
+raw_story = create_story(raw_prompts)
 split_story = remove_prefixes(raw_story)
 
 print(f"Story: {raw_story}. Generating movie...")
@@ -58,9 +57,8 @@ out_name = "out.mp4"
 
 # list_movie_parts = []
 parts = []
+
 # Create transitions
-
-
 for i in tqdm(range(len(list_prompts) - 1), desc="Total Progress"):
     # For a multi transition we can save some computation time and recycle the latents
     if i == 0:
@@ -91,3 +89,11 @@ for i in tqdm(range(len(list_prompts) - 1), desc="Total Progress"):
 # Finally, concatente the result
 list_movie_parts = [f"{p}.mp4" for p in parts]
 concatenate_movies(out_name, list_movie_parts)
+
+# Add sound (automusic from Youtube)
+recommended_song = create_music_recommendation(raw_story)
+youtube2mp3(recommended_song)
+
+input_video = ffmpeg.input('out.mp4')
+input_audio = ffmpeg.input('soundtrack.mp3')
+ffmpeg.concat(input_video, input_audio, v=1, a=1).output('final_movie.mp4').run()

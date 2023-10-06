@@ -1,6 +1,11 @@
 import re
 import cv2
 import openai
+from pytube import Search
+import os
+from pathlib import Path
+
+
 def remove_prefixes(text):
     # Split the text by newline
     lines = text.split('\n')
@@ -93,7 +98,7 @@ def create_prompts(theme, num_prompts):
                f" The prompts should tell a time coherent story where each image is related to the last and the next."
                f" Separate the prompts by a newline, each line begins with a number and then the prompt eg. 1. prompt1-text",
         max_tokens=2000,
-    )
+    ).choices[0].text
 
 def create_story(raw_prompts):
     return openai.Completion.create(
@@ -101,4 +106,42 @@ def create_story(raw_prompts):
         temperature=0.6,
         prompt=fr"Tell a story matching the following prompts. Turn each prompt in a sentence of the story and output in a list of similar length and format. \n {raw_prompts}",
         max_tokens=2000,
-    )
+    ).choices[0].text
+
+def create_music_recommendation(raw_story):
+    return openai.Completion.create(
+        model="gpt-3.5-turbo-instruct",
+        temperature=0.6,
+        prompt=fr"Give me a song recommendation for a sountrack illustrating the following story \n {raw_story}",
+        max_tokens=100,
+    ).choices[0].text
+
+# Youtube AutoMusic
+
+def youtube2mp3(query):
+    if os.path.exists("soundtrack.mp3"):
+        os.remove("soundtrack.mp3")
+
+    i = 0
+    search = Search(query).results
+
+    # Try to download videos in order of search
+    while True:
+        yt = search[i]
+        try:
+            video = yt.streams.filter(abr='160kbps').last()
+            out_file = video.download(output_path="./")
+            break
+        except:
+            i += 1
+            if i == len(query):
+                break
+
+    new_file = Path(f'soundtrack.mp3')
+    os.rename(out_file, new_file)
+
+    ##@ Check success of download
+    if new_file.exists():
+        print(f'{yt.title} has been successfully downloaded.')
+    else:
+        print(f'ERROR: {yt.title}could not be downloaded!')
