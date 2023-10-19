@@ -1,5 +1,6 @@
 from util import *
 from prompts import *
+import numpy as np
 # latent bleeding imports
 from tqdm import tqdm
 import ffmpeg
@@ -23,7 +24,7 @@ duration_single_trans = 10
 depth_strength = 0.55  # Specifies how deep (in terms of diffusion iterations the first branching happens)
 high_res = False
 debug = False
-temperature = 0.6
+temperature = 0.8
 max_tries = 3
 
 openai.api_key = open("openai_apikey", "r").read()
@@ -32,8 +33,6 @@ if not debug:
     theme = input("Please input the theme of the movie \n")
 
     # Create a story matching the prompts also using GPT
-    correctly_generated = False
-
     for i in range(max_tries):
         raw_story = create_story(theme, num_prompts, temperature=temperature)
         split_story = remove_prefixes(raw_story)
@@ -93,8 +92,9 @@ lb = LatentBlending(sdh)
 
 # Add default negative prompt
 lb.set_negative_prompt(neg_prompt)
-sdh.guidance_scale = 7
-sdh.num_inference_steps = 25
+sdh.guidance_scale = 6
+sdh.num_inference_steps = 20
+seeds = np.random.randint(0,954375479,num_prompts).tolist()
 
 # Specify a list of prompts below
 list_prompts = split_prompts
@@ -126,12 +126,13 @@ for i in tqdm(range(len(list_prompts) - 1), desc="Total Progress"):
     lb.run_transition(
         recycle_img1=recycle_img1,
         depth_strength=depth_strength,
-        t_compute_max_allowed=t_compute_max_allowed
+        t_compute_max_allowed=t_compute_max_allowed,
+        fixed_seeds=seeds[i:i+2]
     )
 
     # Apply captions & save movie
     apply_caption(lb, split_story[i], high_res=high_res)
-    lb.write_movie_transition(fp_movie_part, duration_single_trans*2 if i == 0 else duration_single_trans, fps=fps)
+    lb.write_movie_transition(fp_movie_part, duration_single_trans * 2 if i == 0 else duration_single_trans, fps=fps)
     parts.append(part_nr)
 
 
