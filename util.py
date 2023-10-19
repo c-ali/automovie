@@ -90,21 +90,23 @@ def apply_caption(lb, caption, add_linebreaks=True, high_res=False):
 
 # ChatGPT functions
 
-def create_prompts(theme, num_prompts):
+def create_prompts(raw_story, temperature=0.6):
     return openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
-        temperature=0.6,
-        prompt=f"Create a list of {num_prompts} descriptive prompts for an image generation AI on the theme of {theme}."
-               f" The prompts should tell a time coherent story where each image is related to the last and the next."
-               f" Separate the prompts by a newline, each line begins with a number and then the prompt eg. 1. prompt1-text",
+        temperature=temperature,
+        prompt=f"Create a list of scene descriptions matching the following story {raw_story}."
+               f"The amount of items on the list should be the same and each description should match the corresponding story point."
+               f"Good examples of descriptions would be: 1. full body picture of one tall blond girl, model, with space buns hair style, she wear a black short, and black patterns tights ,black lace top with intricated yellow details, black ankle boots in a rooftop in Paris, masterpiece,"
+               f"2. A moustached man with deep creases and wrinkles in his face, stunning ochre eyes, wild windswept long hair, taking a selfie near a faraway castle at sunset."
+               f"Close up of an adult woman as (Alice in Wonderland:1.1), dressed in tight attire, amidst an intense city landscape with a Blade Runner aesthetic, narrow street crowded with people, rain, steam, neon, dark, (small:1.5)",
         max_tokens=2000,
     ).choices[0].text
 
-def create_story(raw_prompts):
+def create_story(theme, num_prompts, temperature=0.6):
     return openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
-        temperature=0.6,
-        prompt=fr"Tell a story matching the following prompts. Turn each prompt in a sentence of the story and output in a list of similar length and format. \n {raw_prompts}",
+        temperature=temperature,
+        prompt=fr"Tell an interesting, breathtaking story on the theme of {theme}. The story should be structured as list of {num_prompts} where each item starts with a number (eg. 1. first prompt). Each item number should be one rather short sentence and the items are separated by a newline.",
         max_tokens=2000,
     ).choices[0].text
 
@@ -112,7 +114,7 @@ def create_music_recommendation(raw_story):
     return openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
         temperature=0.6,
-        prompt=fr"Give me a song recommendation for a sountrack illustrating the following story \n {raw_story}",
+        prompt=fr"Give me a song recommendation for a sountrack illustrating the following story. The reply should only contain the name of the artis and the name of the song. \n {raw_story}",
         max_tokens=100,
     ).choices[0].text
 
@@ -125,6 +127,8 @@ def youtube2mp3(query):
     i = 0
     search = Search(query).results
 
+    if len(search) == 0:
+        raise RuntimeError("Song could not be found")
     # Try to download videos in order of search
     while True:
         yt = search[i]
