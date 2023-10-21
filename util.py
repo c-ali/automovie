@@ -4,7 +4,7 @@ import openai
 from pytube import Search
 import os
 from pathlib import Path
-
+from prompts import *
 
 def remove_prefixes(text):
     # Split the text by newline
@@ -88,35 +88,43 @@ def apply_caption(lb, caption, add_linebreaks=True, high_res=False):
 
 
 
-# ChatGPT functions
-
-def create_prompts(raw_story, temperature=0.6):
-    return openai.Completion.create(
+# LLM story, prompt and music recomendation functions
+# When a LLM is not None, these functions use a llama-cpp-python locally. Else, ChatGPT AI is used
+def create_prompts(raw_story, temperature=0.6, llm=None):
+    if llm is not None:
+        llm(get_prompt_prompt(raw_story), max_tokens=300, stop=["Q:"], echo=True)
+    else:
+        ret = openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
         temperature=temperature,
-        prompt=f"Create a list of scene descriptions matching the following story {raw_story}."
-               f"The amount of items on the list should be the same and each description should match the corresponding story point."
-               f"Good examples of descriptions would be: 1. full body picture of one tall blond girl, model, with space buns hair style, she wear a black short, and black patterns tights ,black lace top with intricated yellow details, black ankle boots in a rooftop in Paris, masterpiece,"
-               f"2. A moustached man with deep creases and wrinkles in his face, stunning ochre eyes, wild windswept long hair, taking a selfie near a faraway castle at sunset."
-               f"Close up of an adult woman as (Alice in Wonderland:1.1), dressed in tight attire, amidst an intense city landscape with a Blade Runner aesthetic, narrow street crowded with people, rain, steam, neon, dark, (small:1.5)",
+        prompt=get_prompt_prompt(raw_story),
         max_tokens=2000,
-    ).choices[0].text
+    )
+    return ret.choices[0].text
 
-def create_story(theme, num_prompts, temperature=0.6):
-    return openai.Completion.create(
+def create_story(theme, num_prompts, temperature=0.6, llm=None):
+    if llm is not None:
+        llm(get_story_prompt(theme, num_prompts), max_tokens=300, stop=["Q:"], echo=True)
+    else:
+        ret = openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
         temperature=temperature,
-        prompt=fr"Tell an interesting, breathtaking story on the theme of {theme}. The story should be structured as list of {num_prompts} where each item starts with a number (eg. 1. first prompt). Each item number should be one rather short sentence and the items are separated by a newline.",
+        prompt=get_story_prompt(theme, num_prompts),
         max_tokens=2000,
-    ).choices[0].text
+    )
+    return ret.choices[0].text
 
-def create_music_recommendation(raw_story):
-    return openai.Completion.create(
+def create_music_recommendation(raw_story, llm=None):
+    if llm is not None:
+        llm(get_music_prompt(raw_story), max_tokens=2000, stop=["Q:"], echo=True)
+    else:
+        ret = openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
         temperature=0.6,
-        prompt=fr"Give me a song recommendation for a sountrack illustrating the following story. The reply should only contain the name of the artis and the name of the song. \n {raw_story}",
+        prompt=get_music_prompt(raw_story),
         max_tokens=100,
-    ).choices[0].text
+    )
+    return ret.choices[0].text
 
 # Youtube AutoMusic
 

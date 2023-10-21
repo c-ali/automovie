@@ -14,8 +14,9 @@ from latent_blending import LatentBlending
 from stable_diffusion_holder import StableDiffusionHolder
 from movie_util import concatenate_movies
 from huggingface_hub import hf_hub_download
-# chatgpt imports
+# chatgpt / llm imports
 import openai
+from llama_cpp import Llama
 
 # Settings
 fps = 24
@@ -23,54 +24,47 @@ num_prompts = 15
 duration_single_trans = 10
 depth_strength = 0.55  # Specifies how deep (in terms of diffusion iterations the first branching happens)
 high_res = False
-debug = False
 temperature = 0.8
 max_tries = 3
-
+run_local = True
 openai.api_key = open("openai_apikey", "r").read()
 
-if not debug:
-    theme = input("Please input the theme of the movie \n")
+# Debug options
+debug_visuals = False
+debug_prompts = True
+
+# Init local LLM model when needed#
+llm = None
+if run_local:
+    llm = Llama(model_path="/home/chris/workspace/sd_ckpts/llama-2-70b-chat.Q5_K_M.gguf", n_ctx=2048, n_gpu_layers=30)
+
+if debug_visuals:
+    raw_prompts = debug_prompts
+    raw_story = debug_story
+else:
+    if debug_prompts:
+        theme = "A woman sitting on the toilet"
+    else:
+        theme = input("Please input the theme of the movie \n")
 
     # Create a story matching the prompts also using GPT
     for i in range(max_tries):
-        raw_story = create_story(theme, num_prompts, temperature=temperature)
+        raw_story = create_story(theme, num_prompts, temperature=temperature, llm=llm)
         split_story = remove_prefixes(raw_story)
         if len(split_story) == num_prompts:
             break
-    print(f"Theme: {theme}. Story: {raw_story}.")
 
     # Create Prompts with GPT 3.5
     for i in range(max_tries):
-        raw_prompts = create_prompts(raw_story, temperature=temperature)
+        raw_prompts = create_prompts(raw_story, temperature=temperature, llm=llm)
         split_prompts = remove_prefixes(raw_prompts)
         if len(split_prompts) == num_prompts:
             break
+            
+print(f"Theme: {theme}. Story: {raw_story}.")
+print(f"Prompts: {raw_prompts}.")
+print("Generating movie...")
 
-    print(f"Prompts: {raw_prompts}.")
-    print("Generating movie...")
-
-else:
-    raw_prompts = '''1.Two women sitting in a bar on stools and chatting
-2. Two women sitting close together in a bar, flirting and laughing
-3. Two women walk together in the streets, hand in hand
-4. Two women laying in a bed, still dressed, sensually kissing
-5. Two women laying in a bed, slowly undressing each other
-6. Two naked women laying naked in a bed, kissing each other sensually
-7. Two women naked in a bed, eating each other out sensually
-8. night scene, full body shot of a sexy naked nude girl, posing, look at a camera, (smile:0.7), [scarlett johansson:emma watson:0.3], white blue hair, ponytail, cute young face, 18 yo, soft volumetric lights, (backlit:1.3), (cinematic:1.3), intricate details, (ArtStation:1.3), Rutkowski
-9. Vampire naked Queen, wet skin, backlit, intricate details, highly detailed, slate atmosphere, cinematic, dimmed colors, dark shot, muted colors, film grainy, lut, spooky
-10. night scene, close up photo of a sexy naked girl, posing, look at a camera and smile, pink ponytail hair, (green eyes:0.8), cute young face, 18 yo, soft volumetric lights, (backlit:1.3), (cinematic:1.3), intricate details, (ArtStation:1.2)'''
-    raw_story = '''1. Two women, Sarah and Emily, walked into a dimly lit bar, their eyes scanning the room for a place to sit.
-2. After a few minutes, they spotted a lone bar stool and sat down, ordering drinks and striking up a conversation. As they talked, they realized they had a lot in common and their laughter filled the bar.
-3. Sarah and Emily leave and get to the hotel where Emily resides
-4. Sarah and Emily start to become sensual, they touch each other and kiss
-5. They slowly start to take their clothes off and feel each other bodies
-6. They lay naked on the bed and kiss very sensually.
-7. Emily starts to eat out Sarah
-8. test
-9. test
-10. test'''
 
 
 
@@ -141,7 +135,7 @@ list_movie_parts = [f"{p}.mp4" for p in parts]
 concatenate_movies(out_name, list_movie_parts)
 
 # Add sound (automusic from Youtube)
-recommended_song = create_music_recommendation(raw_story)
+recommended_song = create_music_recommendation(raw_story, llm=llm)
 print(f"Recommended song: {recommended_song}")
 youtube2mp3(recommended_song)
 input_video = ffmpeg.input('out.mp4')
