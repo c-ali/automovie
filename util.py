@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from prompts import *
 
-def remove_prefixes(text):
+def remove_prefixes_and_split(text):
     # Split the text by newline
     lines = text.split('\n')
 

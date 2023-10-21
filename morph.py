@@ -61,7 +61,7 @@ else:
     for i in range(max_tries):
         raw_story = create_story(theme, num_prompts, temperature=temperature, llm=llm)
         print(f"Theme: {theme}. Story: {raw_story}.")
-        split_story = remove_prefixes(raw_story)
+        split_story = remove_prefixes_and_split(raw_story)
         if len(split_story) == num_prompts:
             break
         if len(split_story) > num_prompts:
@@ -72,15 +72,19 @@ else:
     for i in range(max_tries):
         raw_prompts = create_prompts(raw_story, temperature=temperature, llm=llm)
         print(f"Prompts: {raw_prompts}.")
-        split_prompts = remove_prefixes(raw_prompts)
+        split_prompts = remove_prefixes_and_split(raw_prompts)
         if len(split_prompts) == num_prompts:
             break
         if len(split_prompts) > num_prompts:
             split_prompts = split_prompts[:num_prompts]
             break
 
-recommended_song = create_music_recommendation(raw_story, llm=llm)
-print(f"Recommended song: {recommended_song}")
+# Create song recommendation with LLM
+raw_song_rec = create_music_recommendation(raw_story, llm=llm)
+song_rec = remove_prefixes_and_split(raw_song_rec)
+if len(song_rec) > 1:
+    song_rec = song_rec[0]
+print(f"Recommended song: {raw_song_rec}")
 if run_local:
     del llm
     gc.collect()
@@ -157,7 +161,7 @@ concatenate_movies(out_name, list_movie_parts)
 
 # Add sound (automusic from Youtube)
 print("Adding music")
-youtube2mp3(recommended_song)
+youtube2mp3(raw_song_rec)
 input_video = ffmpeg.input('out.mp4')
 input_audio = ffmpeg.input('soundtrack.mp3')
 if os.path.exists("final_movie.mp4"):
