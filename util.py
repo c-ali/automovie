@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from prompts import *
 
-def remove_prefixes(text):
+def remove_prefixes_and_split(text):
     # Split the text by newline
     lines = text.split('\n')
 
@@ -92,39 +92,45 @@ def apply_caption(lb, caption, add_linebreaks=True, high_res=False):
 # When a LLM is not None, these functions use a llama-cpp-python locally. Else, ChatGPT AI is used
 def create_prompts(raw_story, temperature=0.6, llm=None):
     if llm is not None:
-        llm(get_prompt_prompt(raw_story), max_tokens=300, stop=["Q:"], echo=True)
+        llama_postprompt = get_llama_postprompt("visual description of the story")
+        ret = llm(get_prompt_prompt(raw_story)+llama_postprompt, max_tokens=2500, stop=["Q:"], echo=True)["choices"][0]["text"]
+        ret = get_substring_after(ret, llama_postprompt)
     else:
         ret = openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
         temperature=temperature,
         prompt=get_prompt_prompt(raw_story),
-        max_tokens=2000,
-    )
-    return ret.choices[0].text
+        max_tokens=2500,
+    ).choices[0].text
+    return ret
 
 def create_story(theme, num_prompts, temperature=0.6, llm=None):
     if llm is not None:
-        llm(get_story_prompt(theme, num_prompts), max_tokens=300, stop=["Q:"], echo=True)
+        llama_postprompt = get_llama_postprompt("story")
+        ret = llm(get_story_prompt(theme, num_prompts)+llama_postprompt, max_tokens=2500, stop=["Q:"], echo=True)["choices"][0]["text"]
+        ret = get_substring_after(ret, llama_postprompt)
     else:
         ret = openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
         temperature=temperature,
         prompt=get_story_prompt(theme, num_prompts),
-        max_tokens=2000,
-    )
-    return ret.choices[0].text
+        max_tokens=2500,
+    ).choices[0].text
+    return ret
 
 def create_music_recommendation(raw_story, llm=None):
     if llm is not None:
-        llm(get_music_prompt(raw_story), max_tokens=2000, stop=["Q:"], echo=True)
+        llama_postprompt = get_llama_postprompt("music recommendation")
+        ret = llm(get_music_prompt(raw_story)+llama_postprompt, max_tokens=100, stop=["Q:"], echo=True)["choices"][0]["text"]
+        ret = get_substring_after(ret, llama_postprompt)
     else:
         ret = openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
         temperature=0.6,
         prompt=get_music_prompt(raw_story),
         max_tokens=100,
-    )
-    return ret.choices[0].text
+    ).choices[0].text
+    return ret
 
 # Youtube AutoMusic
 
@@ -157,3 +163,27 @@ def youtube2mp3(query):
         print(f'{yt.title} has been successfully downloaded.')
     else:
         print(f'ERROR: {yt.title}could not be downloaded!')
+
+def get_substring_after(input_str, delimiter):
+    """
+    Return the part of the input_str that comes after the delimiter, including newlines.
+
+    Parameters:
+    input_str (str): The string from which to extract the substring.
+    delimiter (str): The substring after which to start extracting.
+
+    Returns:
+    str: The extracted substring.
+    """
+    # Escape the delimiter to ensure any special characters are treated literally
+    escaped_delimiter = re.escape(delimiter)
+
+    # Construct the regex pattern, ensuring to capture everything (including newlines) after the delimiter
+    # The (?s) flag is used to make the '.' special character match any character whatsoever, including a newline
+    pattern = f"(?s){escaped_delimiter}(.*)"
+
+    # Search for the pattern in the input string
+    match = re.search(pattern, input_str)
+
+    # If a match is found, return the captured group; otherwise, return an empty string
+    return match.group(1) if match else ""

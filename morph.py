@@ -17,26 +17,36 @@ from huggingface_hub import hf_hub_download
 # chatgpt / llm imports
 import openai
 from llama_cpp import Llama
+import gc
 
-# Settings
+# StableDiffusion / Latentbleeding Settings
 fps = 24
-num_prompts = 15
 duration_single_trans = 10
 depth_strength = 0.55  # Specifies how deep (in terms of diffusion iterations the first branching happens)
 high_res = False
+
+
+# LLM Settings
+openai.api_key = open("openai_apikey", "r").read()
+#local_llama_path ="/home/chris/workspace/sd_ckpts/llama-2-70b-chat.Q5_K_M.gguf"
+local_llama_path ="./llama-2-70b-chat.Q3_K_M.gguf"
+
 temperature = 0.8
 max_tries = 3
+num_prompts = 10
+# Local LLM
 run_local = True
-openai.api_key = open("openai_apikey", "r").read()
+n_ctx = 2048 # Context window lenth
+n_gpu_layers = 35
 
 # Debug options
 debug_visuals = False
-debug_prompts = True
+debug_prompts = False
 
 # Init local LLM model when needed#
 llm = None
 if run_local:
-    llm = Llama(model_path="/home/chris/workspace/sd_ckpts/llama-2-70b-chat.Q5_K_M.gguf", n_ctx=2048, n_gpu_layers=30)
+    llm = Llama(model_path=local_llama_path, n_ctx=n_ctx, n_gpu_layers=n_gpu_layers)
 
 if debug_visuals:
     raw_prompts = debug_prompts
@@ -46,23 +56,38 @@ else:
         theme = "A woman sitting on the toilet"
     else:
         theme = input("Please input the theme of the movie \n")
-
+        print("Generating prompts...")
     # Create a story matching the prompts also using GPT
     for i in range(max_tries):
         raw_story = create_story(theme, num_prompts, temperature=temperature, llm=llm)
-        split_story = remove_prefixes(raw_story)
+        print(f"Theme: {theme}. Story: {raw_story}.")
+        split_story = remove_prefixes_and_split(raw_story)
         if len(split_story) == num_prompts:
+            break
+        if len(split_story) > num_prompts:
+            split_story = split_story[:num_prompts]
             break
 
     # Create Prompts with GPT 3.5
     for i in range(max_tries):
         raw_prompts = create_prompts(raw_story, temperature=temperature, llm=llm)
-        split_prompts = remove_prefixes(raw_prompts)
+        print(f"Prompts: {raw_prompts}.")
+        split_prompts = remove_prefixes_and_split(raw_prompts)
         if len(split_prompts) == num_prompts:
             break
-            
-print(f"Theme: {theme}. Story: {raw_story}.")
-print(f"Prompts: {raw_prompts}.")
+        if len(split_prompts) > num_prompts:
+            split_prompts = split_prompts[:num_prompts]
+            break
+
+# Create song recommendation with LLM
+raw_song_rec = create_music_recommendation(raw_story, llm=llm)
+song_rec = remove_prefixes_and_split(raw_song_rec)
+if len(song_rec) > 1:
+    song_rec = song_rec[0]
+print(f"Recommended song: {raw_song_rec}")
+if run_local:
+    del llm
+    gc.collect()
 print("Generating movie...")
 
 
@@ -135,9 +160,8 @@ list_movie_parts = [f"{p}.mp4" for p in parts]
 concatenate_movies(out_name, list_movie_parts)
 
 # Add sound (automusic from Youtube)
-recommended_song = create_music_recommendation(raw_story, llm=llm)
-print(f"Recommended song: {recommended_song}")
-youtube2mp3(recommended_song)
+print("Adding music")
+youtube2mp3(raw_song_rec)
 input_video = ffmpeg.input('out.mp4')
 input_audio = ffmpeg.input('soundtrack.mp3')
 if os.path.exists("final_movie.mp4"):
