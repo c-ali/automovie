@@ -19,19 +19,37 @@ from huggingface_hub import hf_hub_download
 import openai
 from llama_cpp import Llama
 import gc
+import argparse
+
+parser = argparse.ArgumentParser(
+                    prog='AutoMovie',
+                    description='Generates Fully Automated AI Movies')
+
+parser.add_argument('-t', '--t_trans', metavar='T', type=int,
+                    help='Duration of a single transition', default=10)
+parser.add_argument('-p', '--num_prompts', metavar='T', type=int,
+                    help='Total number of prompts for SD', default=15)
+parser.add_argument( '--no_captions', action='store_false',
+                    help='Do not add captions to the movie')
+parser.add_argument('-l', '--local_llm', action='store_true',
+                    help='Run a local llama model')
+parser.add_argument('-m', '--ai_music', action='store_true',
+                    help='Create music with MusicGen')
+
+args = parser.parse_args()
 
 # StableDiffusion / Latentbleeding Settings
 #fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
 fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
 #fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
 fps = 24
-duration_single_trans = 2 #2
+duration_single_trans = args.t_trans #2
 depth_strength = 0.75 #0.82  # Specifies how deep (in terms of diffusion iterations the first branching happens)
-high_res = False
 g_scale = 4
 num_steps = 20
-add_captions = False
-t_compute_max_allowed = 8 # 12 # per segment
+add_captions = args.no_captions
+t_compute_max_allowed = 12 # 8 # per segment
+high_res = False
 
 # LLM Settings
 openai.api_key = open("openai_apikey", "r").read()
@@ -39,16 +57,16 @@ openai.api_key = open("openai_apikey", "r").read()
 
 temperature = 0.8
 max_tries = 3
-num_prompts = 15 #50 #12
+num_prompts = args.num_prompts #50 #12
 
 # Local LLM
-run_local = False
+run_local = args.local_llm
 n_ctx = 2048  # Context window lenth
 n_gpu_layers = 35
 local_llama_path = "./llama-2-70b-chat.Q3_K_M.gguf"
 
 # Musicgen Options
-ai_music = True
+ai_music = args.ai_music
 
 # Debug options
 debug_visuals = False
