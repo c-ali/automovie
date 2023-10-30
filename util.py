@@ -121,7 +121,7 @@ def create_story(theme, num_prompts, temperature=0.6, llm=None):
 def create_music_recommendation(raw_story, llm=None):
     if llm is not None:
         llama_postprompt = get_llama_postprompt("music recommendation")
-        ret = llm(get_music_prompt(raw_story)+llama_postprompt, max_tokens=100, stop=["Q:"], echo=True)["choices"][0]["text"]
+        ret = llm(get_music_prompt(raw_story)+llama_postprompt, max_tokens=50, stop=["Q:"], echo=True)["choices"][0]["text"]
         ret = get_substring_after(ret, llama_postprompt)
     else:
         ret = openai.Completion.create(
