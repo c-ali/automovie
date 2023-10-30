@@ -118,16 +118,18 @@ def create_story(theme, num_prompts, temperature=0.6, llm=None):
     ).choices[0].text
     return ret
 
-def create_music_recommendation(raw_story, llm=None):
+def create_music_recommendation(raw_story, llm=None, gen_music = False):
+    postprompt = "" if llm is None else get_llama_postprompt("music recommendation")
+    prompt = get_music_desc(raw_story) if gen_music else get_music_prompt(raw_story)
+    full_prompt = prompt + postprompt
     if llm is not None:
-        llama_postprompt = get_llama_postprompt("music recommendation")
-        ret = llm(get_music_prompt(raw_story)+llama_postprompt, max_tokens=50, stop=["Q:"], echo=True)["choices"][0]["text"]
-        ret = get_substring_after(ret, llama_postprompt)
+        ret = llm(full_prompt, max_tokens=50, stop=["Q:"], echo=True)["choices"][0]["text"]
+        ret = get_substring_after(ret, postprompt)
     else:
         ret = openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
         temperature=0.6,
-        prompt=get_music_prompt(raw_story),
+        prompt=full_prompt,
         max_tokens=100,
     ).choices[0].text
     return ret

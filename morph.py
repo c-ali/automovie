@@ -9,8 +9,8 @@ import torch
 torch.backends.cudnn.benchmark = False
 torch.set_grad_enabled(False)
 import warnings
-
 warnings.filterwarnings('ignore')
+from gen_music import gen_music
 from latent_blending import LatentBlending
 from stable_diffusion_holder import StableDiffusionHolder
 from movie_util import concatenate_movies
@@ -21,31 +21,34 @@ from llama_cpp import Llama
 import gc
 
 # StableDiffusion / Latentbleeding Settings
-
-fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
-#fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
+#fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
+fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
 #fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
 fps = 24
-duration_single_trans = 10 #2
+duration_single_trans = 2 #2
 depth_strength = 0.75 #0.82  # Specifies how deep (in terms of diffusion iterations the first branching happens)
 high_res = False
 g_scale = 4
 num_steps = 20
-add_captions = True
+add_captions = False
 t_compute_max_allowed = 8 # 12 # per segment
 
 # LLM Settings
 openai.api_key = open("openai_apikey", "r").read()
 # local_llama_path ="/home/chris/workspace/sd_ckpts/llama-2-70b-chat.Q5_K_M.gguf"
-local_llama_path = "./llama-2-70b-chat.Q3_K_M.gguf"
 
 temperature = 0.8
 max_tries = 3
-num_prompts = 12 #50 #12
+num_prompts = 15 #50 #12
+
 # Local LLM
 run_local = False
 n_ctx = 2048  # Context window lenth
 n_gpu_layers = 35
+local_llama_path = "./llama-2-70b-chat.Q3_K_M.gguf"
+
+# Musicgen Options
+ai_music = True
 
 # Debug options
 debug_visuals = False
@@ -62,6 +65,7 @@ if debug_visuals:
 else:
     if debug_prompts:
         theme = "A woman sitting on the toilet"
+        music_inject = prompt_inject = ""
     else:
         theme = input("Please input the theme of the movie \n")
         prompt_inject = input("Input additional instructions for the prompts \n")
@@ -98,12 +102,17 @@ else:
         for j in range(len(split_prompts)):
             split_prompts[j] = prompt_inject + " " + split_prompts[j]
 
-# Create song recommendation with LLM
-raw_song_rec = create_music_recommendation(raw_story, llm=llm)
-song_rec = remove_prefixes_and_split(raw_song_rec)
-if len(song_rec) > 1:
-    song_rec = song_rec[0]
-print(f"Recommended song: {raw_song_rec}")
+# Create song recommendation with LLM or create song description for musicGEN
+if prompt_inject == "":
+    raw_song_rec = create_music_recommendation(raw_story, llm=llm, gen_music=ai_music)
+    song_rec = remove_prefixes_and_split(raw_song_rec)
+    if len(song_rec) > 1:
+        song_rec = song_rec[0]
+else:
+    song_rec = prompt_inject
+print(f"Recommended song: {song_rec}")
+
+# Clean up local LLM garbage to free up VRAM
 if run_local:
     del llm
     gc.collect()
@@ -112,14 +121,6 @@ print("Generating movie...")
 # Join the first two captions
 if len(split_story) > 1:
     split_story = [split_story[0] + " " + split_story[1]] + split_story[2:]
-
-# %% First let us spawn a stable diffusion holder. Uncomment your version of choice.
-#if high_res:
-#    fp_ckpt = hf_hub_download(repo_id="stabilityai/stable-diffusion-2-1", filename="v2-1_768-ema-pruned.ckpt")
-#else:
-#    fp_ckpt = hf_hub_download(repo_id="stabilityai/stable-diffusion-2-1-base", filename="v2-1_512-ema-pruned.ckpt")
-#
-#fp_config = "/home/chris/workspace/sd_ckpts/artiusV21.yaml"
 
 sdh = StableDiffusionHolder(fp_ckpt=fp_ckpt, fp_config=None)
 lb = LatentBlending(sdh)
@@ -173,12 +174,19 @@ for i in tqdm(range(len(list_prompts) - 1), desc="Total Progress"):
 list_movie_parts = [f"{p}.mp4" for p in parts]
 concatenate_movies(out_name, list_movie_parts)
 
-# Add sound (automusic from Youtube)
-print("Adding music")
-song_rec = prompt_inject if prompt_inject != "" else song_rec
-youtube2mp3(song_rec)
+# Free up space, run gc on image models
+del sdh, lb
+
+# Add sound (automusic from Youtube) / MusicGen
+if ai_music:
+    print("AI Generating Music...")
+    gen_music(song_rec, serialize=True)
+    input_audio = ffmpeg.input("musicgen_out.wav")
+else:
+    youtube2mp3(song_rec)
+    input_audio = ffmpeg.input('soundtrack.mp3')
+    print("Adding Music...")
 input_video = ffmpeg.input('out.mp4')
-input_audio = ffmpeg.input('soundtrack.mp3')
 if os.path.exists("final_movie.mp4"):
     os.remove("final_movie.mp4")
 (
