@@ -37,6 +37,9 @@ def get_story_prompt(theme, num_prompts):
 def get_music_prompt(raw_story):
     return fr"Give me a song recommendation for a sountrack illustrating the following story {raw_story}. The reply should be in the format '<song name> <artist> \n'."
 
+def get_music_desc(raw_story):
+    return fr"Give me a simple, (short) description of a music track that would fit the following story {raw_story} e.g. '4/4 100bpm 320kbps 48khz, Industrial/Electronic Soundtrack, Dark, Intense, Sci-Fi'"
+
 def get_prompt_prompt(raw_story):
     return f"Create a list of descriptions matching the following story {raw_story}. They should be short, visual descriptions of images that could illustrate the story."\
                f"The amount of items on the list should be the same and each description, seaparated by a newline, should match the corresponding story point."\
