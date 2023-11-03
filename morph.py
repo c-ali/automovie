@@ -35,13 +35,18 @@ parser.add_argument('-l', '--local_llm', action='store_true',
                     help='Run a local llama model')
 parser.add_argument('-m', '--ai_music', action='store_true',
                     help='Create music with MusicGen')
+parser.add_argument('--temp', metavar='T', type=float,
+                    help='Temperature for the language model', default=1.2)#0.8)
 
 args = parser.parse_args()
 
 # StableDiffusion / Latentbleeding Settings
 #fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
-fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
+#fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
+#fp_ckpt = "/home/chris/workspace/sd_ckpts/f_model_v1-5.st"
 #fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
+fp_ckpt = "/home/chris/workspace/sd_ckpts/_deliberate_v1-5.st"
+
 fps = 24
 duration_single_trans = args.t_trans #2
 depth_strength = 0.75 #0.82  # Specifies how deep (in terms of diffusion iterations the first branching happens)
@@ -55,7 +60,7 @@ high_res = False
 openai.api_key = open("openai_apikey", "r").read()
 # local_llama_path ="/home/chris/workspace/sd_ckpts/llama-2-70b-chat.Q5_K_M.gguf"
 
-temperature = 0.8
+temperature = args.temp
 max_tries = 3
 num_prompts = args.num_prompts #50 #12
 
@@ -121,13 +126,13 @@ else:
             split_prompts[j] = prompt_inject + " " + split_prompts[j]
 
 # Create song recommendation with LLM or create song description for musicGEN
-if prompt_inject == "":
+if music_inject == "":
     raw_song_rec = create_music_recommendation(raw_story, llm=llm, gen_music=ai_music)
     song_rec = remove_prefixes_and_split(raw_song_rec)
     if len(song_rec) > 1:
         song_rec = song_rec[0]
 else:
-    song_rec = prompt_inject
+    song_rec = music_inject
 print(f"Recommended song: {song_rec}")
 
 # Clean up local LLM garbage to free up VRAM
