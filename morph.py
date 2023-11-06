@@ -35,6 +35,8 @@ parser.add_argument('-l', '--local_llm', action='store_true',
                     help='Run a local llama model')
 parser.add_argument('-m', '--ai_music', action='store_true',
                     help='Create music with MusicGen')
+parser.add_argument('-w', '--watermark', action='store_true',
+                    help='Add a Watermark')
 parser.add_argument('--temp', metavar='T', type=float,
                     help='Temperature for the language model', default=1.2)#0.8)
 
@@ -42,10 +44,10 @@ args = parser.parse_args()
 
 # StableDiffusion / Latentbleeding Settings
 #fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
-#fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
+fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
 #fp_ckpt = "/home/chris/workspace/sd_ckpts/f_model_v1-5.st"
 #fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
-fp_ckpt = "/home/chris/workspace/sd_ckpts/_deliberate_v1-5.st"
+#fp_ckpt = "/home/chris/workspace/sd_ckpts/_deliberate_v1-5.st"
 
 fps = 24
 duration_single_trans = args.t_trans #2
@@ -55,6 +57,7 @@ num_steps = 20
 add_captions = args.no_captions
 t_compute_max_allowed = 12 # 8 # per segment
 high_res = False
+watermark_path = "./techno3_alpha.png"
 
 # LLM Settings
 openai.api_key = open("openai_apikey", "r").read()
@@ -190,6 +193,8 @@ for i in tqdm(range(len(list_prompts) - 1), desc="Total Progress"):
     # Apply captions & save movie
     if add_captions:
         apply_caption(lb, split_story[i], high_res=high_res)
+    if args.watermark:
+        apply_watermark(lb, watermark_path=watermark_path)
     lb.write_movie_transition(fp_movie_part, duration_single_trans * 2 if i == 0 else duration_single_trans, fps=fps)
     parts.append(part_nr)
 

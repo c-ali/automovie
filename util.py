@@ -5,6 +5,7 @@ from pytube import Search
 import os
 from pathlib import Path
 from prompts import *
+import numpy as np
 
 def remove_prefixes_and_split(text):
     # Split the text by newline
@@ -80,13 +81,54 @@ def add_caption_to_frame(img, caption, add_linebreaks=True, high_res=False):
                         fontColor,
                         thickness,
                         lineType)
+
+def add_watermark(img, margin=0, watermark_path="./watermark.png"):
+    # Load the original image and the watermark image
+    watermark = cv2.imread(watermark_path, cv2.IMREAD_UNCHANGED)
+
+    # Get the dimensions of the watermark
+    watermark_height, watermark_width = watermark.shape[:2]
+
+    # Define the position of the top-left corner of the watermark
+    top_left_x = img.shape[1] - watermark_width - margin  # 10 pixels from the right edge
+    top_left_y = img.shape[0] - watermark_height - margin  # 10 pixels from the bottom edge
+
+    # If the watermark image has an alpha channel, we use it for blending
+    # If the watermark image has an alpha channel, we use it for blending
+    if watermark.shape[2] == 4:
+        # Split the watermark into its alpha channel and the color channels
+        overlay_color = watermark[:, :, :3]
+        alpha_mask = watermark[:, :, 3] / 255.0
+
+        # We need to expand the dimensions of alpha_mask to match overlay_color for broadcasting
+        alpha_mask = alpha_mask[:, :, np.newaxis]  # This changes shape from (h, w) to (h, w, 1)
+
+        # Take the region of interest from the base image where the watermark will be placed
+        roi = img[top_left_y:top_left_y + watermark_height, top_left_x:top_left_x + watermark_width]
+
+        # Blend the watermark with the region of interest based on the alpha channel
+        image_blend = ((1.0 - alpha_mask) * roi + alpha_mask * overlay_color).astype('uint8')
+
+        # Replace the area in the original image with the blended result
+        img[top_left_y:top_left_y + watermark_height, top_left_x:top_left_x + watermark_width] = image_blend
+
+
+    else:
+        # If the watermark has no alpha channel, we just overlay it
+        img[top_left_y:top_left_y + watermark_height, top_left_x:top_left_x + watermark_width] = watermark
+
+
 def apply_caption(lb, caption, add_linebreaks=True, high_res=False):
     for i in range(len(lb.tree_final_imgs)):
         arr = lb.tree_final_imgs[i].copy()
         add_caption_to_frame(arr, caption, add_linebreaks=add_linebreaks, high_res=high_res)
         lb.tree_final_imgs[i] = arr
 
-
+def apply_watermark(lb, watermark_path="./watermark.png"):
+    for i in range(len(lb.tree_final_imgs)):
+        arr = lb.tree_final_imgs[i].copy()
+        add_watermark(arr, watermark_path=watermark_path)
+        lb.tree_final_imgs[i] = arr
 
 # LLM story, prompt and music recomendation functions
 # When a LLM is not None, these functions use a llama-cpp-python locally. Else, ChatGPT AI is used
