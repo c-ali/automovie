@@ -140,7 +140,7 @@ def create_prompts(raw_story, temperature=0.6, llm=None):
     else:
         ret = openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
-        temperature=temperature,
+        temperature=0.7,
         prompt=get_prompt_prompt(raw_story),
         max_tokens=2500,
     ).choices[0].text
@@ -156,7 +156,7 @@ def create_story(theme, num_prompts, temperature=0.6, llm=None):
         model="gpt-3.5-turbo-instruct",
         temperature=temperature,
         prompt=get_story_prompt(theme, num_prompts),
-        max_tokens=2500,
+        max_tokens=3000,
     ).choices[0].text
     return ret
 
