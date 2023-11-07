@@ -9,6 +9,7 @@ import torch
 torch.backends.cudnn.benchmark = False
 torch.set_grad_enabled(False)
 import warnings
+
 warnings.filterwarnings('ignore')
 from gen_music import gen_music
 from latent_blending import LatentBlending
@@ -22,14 +23,14 @@ import gc
 import argparse
 
 parser = argparse.ArgumentParser(
-                    prog='AutoMovie',
-                    description='Generates Fully Automated AI Movies')
+    prog='AutoMovie',
+    description='Generates Fully Automated AI Movies')
 
 parser.add_argument('-t', '--t_trans', metavar='T', type=int,
                     help='Duration of a single transition', default=10)
 parser.add_argument('-p', '--num_prompts', metavar='T', type=int,
                     help='Total number of prompts for SD', default=15)
-parser.add_argument( '--no_captions', action='store_false',
+parser.add_argument('--no_captions', action='store_false',
                     help='Do not add captions to the movie')
 parser.add_argument('-l', '--local_llm', action='store_true',
                     help='Run a local llama model')
@@ -38,24 +39,24 @@ parser.add_argument('-m', '--ai_music', action='store_true',
 parser.add_argument('-w', '--watermark', action='store_true',
                     help='Add a Watermark')
 parser.add_argument('--temp', metavar='T', type=float,
-                    help='Temperature for the language model', default=1.2)#0.8)
+                    help='Temperature for the language model', default=1.2)  # 0.8)
 
 args = parser.parse_args()
 
 # StableDiffusion / Latentbleeding Settings
-#fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
+# fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
 fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
-#fp_ckpt = "/home/chris/workspace/sd_ckpts/f_model_v1-5.st"
-#fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
-#fp_ckpt = "/home/chris/workspace/sd_ckpts/_deliberate_v1-5.st"
+# fp_ckpt = "/home/chris/workspace/sd_ckpts/f_model_v1-5.st"
+# fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
+# fp_ckpt = "/home/chris/workspace/sd_ckpts/_deliberate_v1-5.st"
 
 fps = 24
-duration_single_trans = args.t_trans #2
-depth_strength = 0.75 #0.82  # Specifies how deep (in terms of diffusion iterations the first branching happens)
+duration_single_trans = args.t_trans  # 2
+depth_strength = 0.75  # 0.82  # Specifies how deep (in terms of diffusion iterations the first branching happens)
 g_scale = 4
 num_steps = 20
 add_captions = args.no_captions
-t_compute_max_allowed = 12 # 8 # per segment
+t_compute_max_allowed = 12  # 8 # per segment
 high_res = False
 watermark_path = "./techno3_alpha.png"
 
@@ -65,7 +66,7 @@ openai.api_key = open("openai_apikey", "r").read()
 
 temperature = args.temp
 max_tries = 3
-num_prompts = args.num_prompts #50 #12
+num_prompts = args.num_prompts  # 50 #12
 
 # Local LLM
 run_local = args.local_llm
@@ -96,23 +97,51 @@ else:
         theme = input("Please input the theme of the movie \n")
         prompt_inject = input("Input additional instructions for the prompts \n")
         music_inject = input("Manually set the music to this song \n")
-        print("Generating prompts...")
+        print("Generating Story and Prompts...")
     # Create a story matching the prompts also using GPT
     for i in range(max_tries):
-        raw_story = create_story(theme, num_prompts, temperature=temperature, llm=llm)
-        print(f"Theme: {theme}. Story: {raw_story}.")
-        split_story = remove_prefixes_and_split(raw_story)
+        # ChatGPT cannot output more than 30 prompts at a time. For now we just create separated stories.
+        if num_prompts > 30:
+            num_generations, rest = divmod(num_prompts, 30)
+            raw_stories = []
+            split_story = []
+            for j in range(num_generations):
+                raw_story = create_story(theme, 30, temperature=temperature, llm=llm)
+                raw_stories.append(raw_story)
+                split_story = split_story + remove_prefixes_and_split(raw_story)
+            raw_story = create_story(theme, rest, temperature=temperature, llm=llm)
+            raw_stories.append(raw_story)
+            split_story = split_story + remove_prefixes_and_split(raw_story)
+
+        else:
+            raw_story = create_story(theme, num_prompts, temperature=temperature, llm=llm)
+            split_story = remove_prefixes_and_split(raw_story)
+
+        # Cut if too long or try again if too short
         if len(split_story) == num_prompts:
             break
         if len(split_story) > num_prompts:
             split_story = split_story[:num_prompts]
             break
 
+    print(f"Theme: {theme}. Story:")
+    for i, item in enumerate(split_story):
+        print(f"{i + 1}. {item}.")
+
     # Create Prompts with GPT 3.5
     for i in range(max_tries):
-        raw_prompts = create_prompts(raw_story,temperature=temperature, llm=llm)
-        print(f"Prompts: {raw_prompts}.")
-        split_prompts = remove_prefixes_and_split(raw_prompts)
+        # If we have more than 30 prompts, we split up the generation
+        if num_prompts > 30:
+            split_prompts = []
+            for story in raw_stories:
+                raw_prompts = create_prompts(story, temperature=temperature, llm=llm)
+                split_prompts = split_prompts + remove_prefixes_and_split(raw_prompts)
+
+        else:
+            raw_prompts = create_prompts(raw_story, temperature=temperature, llm=llm)
+            split_prompts = remove_prefixes_and_split(raw_prompts)
+
+        # Cut if too long or try again if too short
         if len(split_prompts) == num_prompts:
             break
         if len(split_prompts) > num_prompts:
@@ -127,6 +156,11 @@ else:
     if prompt_inject != "":
         for j in range(len(split_prompts)):
             split_prompts[j] = prompt_inject + " " + split_prompts[j]
+
+    # Print promtps
+    print(f"Prompts:")
+    for i, item in enumerate(split_prompts):
+        print(f"{i + 1}. {item}.")
 
 # Create song recommendation with LLM or create song description for musicGEN
 if music_inject == "":

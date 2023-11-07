@@ -29,7 +29,7 @@ def get_music_desc(raw_story):
 
 def get_prompt_prompt(raw_story):
 
-    return f"Create a list of descriptions matching the following story {raw_story}. They should be short, visual descriptions of images that could illustrate the story."\
+    return f"Create a list of descriptions matching the following story {raw_story}. They should be (short, visual descriptions) of images that could illustrate the story."\
                f"The amount of items on the list should be the same and each description, seaparated by a newline, should match the corresponding story point."\
                f"Good examples of descriptions would be: 1. full body picture of one tall blond girl, model, with space buns hair style, she wear a black short, and black patterns tights ,black lace top with intricated yellow details, black ankle boots in a rooftop in Paris, masterpiece,"\
                f"2. A moustached man with deep creases and wrinkles in his face, stunning ochre eyes, wild windswept long hair, taking a selfie near a faraway castle at sunset."\
