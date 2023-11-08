@@ -38,6 +38,8 @@ parser.add_argument('-m', '--ai_music', action='store_true',
                     help='Create music with MusicGen')
 parser.add_argument('-w', '--watermark', action='store_true',
                     help='Add a Watermark')
+parser.add_argument( '--high_res', action='store_true',
+                    help='Run 4x Upscaler')
 parser.add_argument('--temp', metavar='T', type=float,
                     help='Temperature for the language model', default=1.2)  # 0.8)
 parser.add_argument('--dstrength', metavar='T', type=float,
@@ -60,6 +62,13 @@ add_captions = args.no_captions
 t_compute_max_allowed = 12  # 8 # per segment
 high_res = False
 watermark_path = "./techno3_alpha.png"
+upscale = args.high_res
+
+# %% Define vars for high-resoltion pass
+fp_ckpt_hires = hf_hub_download(repo_id="stabilityai/stable-diffusion-x4-upscaler", filename="x4-upscaler-ema.ckpt")
+depth_strength_hires = 0.65
+num_inference_steps_hires = 100
+nmb_branches_final_hires = 5
 
 # LLM Settings
 openai.api_key = open("openai_apikey", "r").read()
@@ -79,26 +88,23 @@ local_llama_path = "./llama-2-70b-chat.Q3_K_M.gguf"
 ai_music = args.ai_music
 
 # Debug options
-debug_visuals = False
-debug_prompts = False
+debug = False
 
 # Init local LLM model when needed#
 llm = None
 if run_local:
     llm = Llama(model_path=local_llama_path, n_ctx=n_ctx, n_gpu_layers=n_gpu_layers)
 
-if debug_visuals:
-    raw_prompts = debug_prompts
+if debug:
     raw_story = debug_story
+    split_story = remove_prefixes_and_split(debug_story)
+    split_prompts = remove_prefixes_and_split(debug_prompts)
+    music_inject = prompt_inject = ""
 else:
-    if debug_prompts:
-        theme = "A woman sitting on the toilet"
-        music_inject = prompt_inject = ""
-    else:
-        theme = input("Please input the theme of the movie \n")
-        prompt_inject = input("Input additional instructions for the prompts \n")
-        music_inject = input("Manually set the music to this song \n")
-        print("Generating Story and Prompts...")
+    theme = input("Please input the theme of the movie \n")
+    prompt_inject = input("Input additional instructions for the prompts \n")
+    music_inject = input("Manually set the music to this song \n")
+    print("Generating Story and Prompts...")
     # Create a story matching the prompts also using GPT
     for i in range(max_tries):
         # ChatGPT cannot output more than 30 prompts at a time. For now we just create separated stories.
@@ -203,7 +209,7 @@ out_name = "out.mp4"
 parts = []
 
 # Create transitions
-for i in tqdm(range(len(list_prompts) - 1), desc="Total Progress"):
+for i in tqdm(range(len(list_prompts) - 1), desc="LowRes Progress"):
     # For a multi transition we can save some computation time and recycle the latents
     if i == 0:
         lb.set_prompt1(list_prompts[i])
@@ -231,10 +237,22 @@ for i in tqdm(range(len(list_prompts) - 1), desc="Total Progress"):
     if args.watermark:
         apply_watermark(lb, watermark_path=watermark_path)
     lb.write_movie_transition(fp_movie_part, duration_single_trans * 2 if i == 0 else duration_single_trans, fps=fps)
+    if upscale:
+        lb.write_imgs_transition(part_nr)
     parts.append(part_nr)
 
+if upscale:
+    sdh = StableDiffusionHolder(fp_ckpt_hires)
+    lb = LatentBlending(sdh)
+    for dp_part in tqdm(parts, desc="HighRes Progress"):
+        lb.run_upscaling(dp_part, depth_strength_hires, num_inference_steps_hires, nmb_branches_final_hires)
+
 # Finally, concatente the result
-list_movie_parts = [f"{p}.mp4" for p in parts]
+if upscale:
+    list_movie_parts = [os.path.join(p, "movie_highres.mp4") for p in parts]
+else:
+    list_movie_parts = [f"{p}.mp4" for p in parts]
+
 concatenate_movies(out_name, list_movie_parts)
 
 # Free up space, run gc on image models
