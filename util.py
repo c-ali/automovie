@@ -6,6 +6,8 @@ import os
 from pathlib import Path
 from prompts import *
 import numpy as np
+import json
+from datetime import datetime
 
 def remove_prefixes_and_split(text):
     # Split the text by newline
@@ -231,3 +233,30 @@ def get_substring_after(input_str, delimiter):
 
     # If a match is found, return the captured group; otherwise, return an empty string
     return match.group(1) if match else ""
+
+def write_log( theme, prompt_inject, neg_prompt_inject, dstrength, t_trans, output_path="./log.json"):
+    with open(output_path, 'r+') as file:
+        try:
+            # Try to load the existing data into a dictionary
+            cache = json.load(file)
+        except json.JSONDecodeError:
+            # If the file is empty or invalid, start with an empty dictionary
+            cache = {}
+
+        # Create a new dictionary with the data to add
+        dump_dict = {"theme": theme, "prompt_inject": prompt_inject,"neg_prompt_inject": neg_prompt_inject, "dstrength": dstrength, "ttrans": t_trans}
+
+        # Get the current timestamp
+        timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
+
+        # Add the new data to the cache with the timestamp as the key
+        cache[timestamp] = dump_dict
+
+        # Go back to the start of the file to overwrite it
+        file.seek(0)
+
+        # Write the updated dictionary back to the file as JSON
+        json.dump(cache, file)
+
+        # Truncate the file to the current position in case the new data is shorter than the old
+        file.truncate()
