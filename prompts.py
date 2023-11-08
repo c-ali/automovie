@@ -8,7 +8,7 @@ poorly drawn ears, extra ears, liquid ears, heavy ears, missing ears, deformed, 
 extra limbs, face cut, head cut, extra fingers, extra arms, poorly drawn face, mutation, bad proportions, 
 cropped head, malformed limbs, mutated hands, fused fingers, long neck'''
 
-neg_prompt = "cartoon, children, underage girl, painting, illustration, (worst quality, low quality, normal quality:2)"
+neg_prompt = "creepy, cartoon, children, underage girl, (worst quality, low quality, normal quality:2)"
 
 debug_prompts = '''1.Two women sitting in a bar on stools and chatting
 2. Two women sitting close together in a bar, flirting and laughing

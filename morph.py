@@ -40,7 +40,8 @@ parser.add_argument('-w', '--watermark', action='store_true',
                     help='Add a Watermark')
 parser.add_argument('--temp', metavar='T', type=float,
                     help='Temperature for the language model', default=1.2)  # 0.8)
-
+parser.add_argument('--dstrength', metavar='T', type=float,
+                    help='Depth strength of the model', default=0.75)  # 0.8)
 args = parser.parse_args()
 
 # StableDiffusion / Latentbleeding Settings
@@ -52,7 +53,7 @@ fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
 
 fps = 24
 duration_single_trans = args.t_trans  # 2
-depth_strength = 0.75  # 0.82  # Specifies how deep (in terms of diffusion iterations the first branching happens)
+depth_strength = args.dstrength  # 0.82  # Specifies how deep (in terms of diffusion iterations the first branching happens)
 g_scale = 4
 num_steps = 20
 add_captions = args.no_captions
@@ -255,3 +256,5 @@ if os.path.exists("final_movie.mp4"):
     ffmpeg.output(input_video, input_audio, 'final_movie.mp4', shortest=None, vcodec='copy')
     .run()
 )
+
+write_log(theme, prompt_inject, args.dstrength, args.t_trans)
