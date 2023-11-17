@@ -235,7 +235,7 @@ def get_substring_after(input_str, delimiter):
     # If a match is found, return the captured group; otherwise, return an empty string
     return match.group(1) if match else ""
 
-def write_log( theme, prompt_inject, neg_prompt_inject, dstrength, t_trans, output_path="./log.json"):
+def write_log( theme, prompt_inject, song_rec, neg_prompt_inject, dstrength, t_trans, output_path="./log.json"):
     with open(output_path, 'r+') as file:
         try:
             # Try to load the existing data into a dictionary
@@ -245,7 +245,7 @@ def write_log( theme, prompt_inject, neg_prompt_inject, dstrength, t_trans, outp
             cache = {}
 
         # Create a new dictionary with the data to add
-        dump_dict = {"theme": theme, "prompt_inject": prompt_inject,"neg_prompt_inject": neg_prompt_inject, "dstrength": dstrength, "ttrans": t_trans}
+        dump_dict = {"theme": theme, "prompt_inject": prompt_inject, "song_rec": song_rec, "neg_prompt_inject": neg_prompt_inject, "dstrength": str(dstrength), "ttrans": str(t_trans)}
 
         # Get the current timestamp
         timestamp = datetime.now().strftime("%d/%m/%Y, %H:%M:%S")
@@ -261,3 +261,6 @@ def write_log( theme, prompt_inject, neg_prompt_inject, dstrength, t_trans, outp
 
         # Truncate the file to the current position in case the new data is shorter than the old
         file.truncate()
+
+        return dump_dict
+

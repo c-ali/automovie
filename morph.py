@@ -58,7 +58,7 @@ run_local = args.local_llm
 add_watermark = args.watermark
 
 # You can choose one of these presets. If theme/prompt inject/neg. prompt_inject/music inject are specified, they will not be asked from the user
-presets = {"psytrance": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": 15,
+presets = {"psytrance": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, #"num_prompts": 15,
                          "neg_prompt_inject": "(((Creepy))), ((Frightening)), Open Mouth, (((Bad Trip)))", "add_captions": False,
                          "theme": "A dmt trip", "visual_style": "Alex Grey artistic render", "music_inject": ""}}
 if args.preset != "":
@@ -264,6 +264,8 @@ concatenate_movies(out_name, list_movie_parts)
 # Free up space, run gc on image models
 del sdh, lb
 
+
+
 # Add sound (automusic from Youtube) / MusicGen
 if ai_music:
     print("AI Generating Music...")
@@ -273,12 +275,19 @@ else:
     youtube2mp3(song_rec)
     input_audio = ffmpeg.input('soundtrack.mp3')
     print("Adding Music...")
+
+# Log everything
+log_dict = write_log(theme, visual_style, song_rec, neg_prompt_inject, args.dstrength, args.t_trans)
+
 input_video = ffmpeg.input('out.mp4')
+
+# overwrite old movie
 if os.path.exists("final_movie.mp4"):
     os.remove("final_movie.mp4")
-(
-    ffmpeg.output(input_video, input_audio, 'final_movie.mp4', shortest=None, vcodec='copy')
-    .run()
-)
 
-write_log(theme, visual_style, neg_prompt_inject, args.dstrength, args.t_trans)
+# Modify this line to include metadata
+output = ffmpeg.output(input_video, input_audio, 'final_movie.mp4', shortest=None, vcodec='copy', **{'metadata:g': log_dict})
+
+output.run()
+
+
