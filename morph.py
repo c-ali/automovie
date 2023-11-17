@@ -26,9 +26,9 @@ parser = argparse.ArgumentParser(
     prog='AutoMovie',
     description='Generates Fully Automated AI Movies')
 
-parser.add_argument('-t', '--t_trans', metavar='T', type=int,
+parser.add_argument('-t', '--t_trans', type=int,
                     help='Duration of a single transition', default=10) # 2 seconds for fast, 6 seconds for slow
-parser.add_argument('-p', '--num_prompts', metavar='T', type=int,
+parser.add_argument('-p', '--num_prompts', type=int,
                     help='Total number of prompts for SD', default=15)
 parser.add_argument('--no_captions', action='store_false',
                     help='Do not add captions to the movie')
@@ -38,12 +38,14 @@ parser.add_argument('-m', '--ai_music', action='store_true',
                     help='Create music with MusicGen')
 parser.add_argument('-w', '--watermark', action='store_true',
                     help='Add a Watermark')
-parser.add_argument( '--high_res', action='store_true',
+parser.add_argument('--high_res', action='store_true',
                     help='Run 4x Upscaler')
-parser.add_argument('--temp', metavar='T', type=float,
+parser.add_argument('--temp', type=float,
                     help='Temperature for the language model', default=1.2)  # 0.8)
-parser.add_argument('--dstrength', metavar='T', type=float,
+parser.add_argument('--dstrength', type=float,
                     help='Depth strength of the model', default=0.75)   # Specifies how deep (in terms of diffusion iterations the first branching happens). 0.75 for alpha blendy, 0.55 for buttersmooth
+parser.add_argument('--preset', type=str,
+                    help='Run a pre-configured mode e.g. psytrance', default="")
 args = parser.parse_args()
 upscale = args.high_res
 add_captions = args.no_captions
@@ -53,6 +55,13 @@ temperature = args.temp
 num_prompts = args.num_prompts
 ai_music = args.ai_music
 run_local = args.local_llm
+add_watermark = args.watermark
+presets = {"psytrance": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": 100,
+                         "neg_prompt_inject": "(((Creepy))), ((Frightening)), Open Mouth, (((Bad Trip)))", "add_captions": False,
+                         "theme": "A dmt trip", "prompt_inject": "Alex Grey artistic", "music_inject": ""}}
+if args.preset != "":
+    assert args.preset in presets.keys()
+    globals().update(presets[args.preset])
 
 # StableDiffusion / Latentbleeding Settings
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
@@ -100,10 +109,14 @@ if debug:
     split_prompts = remove_prefixes_and_split(debug_prompts)
     music_inject = prompt_inject = neg_prompt_inject = ""
 else:
-    theme = input("Please input the theme of the movie \n")
-    prompt_inject = input("Input additional instructions for the prompts \n")
-    neg_prompt_inject = input("Input additional instructions for the negative image prompt\n")
-    music_inject = input("Manually set the music to this song \n")
+    if "theme" not in globals():
+        theme = input("Please input the theme of the movie \n")
+    if "prompt_inject" not in globals():
+        prompt_inject = input("Input additional instructions for the prompts \n")
+    if "neg_prompt_inject" not in globals():
+        neg_prompt_inject = input("Input additional instructions for the negative image prompt\n")
+    if "music_inject" not in globals():
+        music_inject = input("Manually set the music to this song \n")
     print("Generating Story and Prompts...")
     # Create a story matching the prompts also using GPT
     for i in range(max_tries):
@@ -225,7 +238,7 @@ for i in tqdm(range(len(split_prompts) - 1), desc="LowRes Progress"):
     # Apply captions & save movie
     if add_captions:
         apply_caption(lb, split_story[i], high_res=high_res)
-    if args.watermark:
+    if add_watermark:
         apply_watermark(lb, watermark_path=watermark_path)
     lb.write_movie_transition(fp_movie_part, duration_single_trans * 2 if i == 0 else duration_single_trans, fps=fps)
     if upscale:
