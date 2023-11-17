@@ -27,7 +27,7 @@ parser = argparse.ArgumentParser(
     description='Generates Fully Automated AI Movies')
 
 parser.add_argument('-t', '--t_trans', metavar='T', type=int,
-                    help='Duration of a single transition', default=10)
+                    help='Duration of a single transition', default=10) # 2 seconds for fast, 6 seconds for slow
 parser.add_argument('-p', '--num_prompts', metavar='T', type=int,
                     help='Total number of prompts for SD', default=15)
 parser.add_argument('--no_captions', action='store_false',
@@ -43,8 +43,16 @@ parser.add_argument( '--high_res', action='store_true',
 parser.add_argument('--temp', metavar='T', type=float,
                     help='Temperature for the language model', default=1.2)  # 0.8)
 parser.add_argument('--dstrength', metavar='T', type=float,
-                    help='Depth strength of the model', default=0.75)  # 0.8)
+                    help='Depth strength of the model', default=0.75)   # Specifies how deep (in terms of diffusion iterations the first branching happens). 0.75 for alpha blendy, 0.55 for buttersmooth
 args = parser.parse_args()
+upscale = args.high_res
+add_captions = args.no_captions
+duration_single_trans = args.t_trans
+depth_strength = args.dstrength
+temperature = args.temp
+num_prompts = args.num_prompts
+ai_music = args.ai_music
+run_local = args.local_llm
 
 # StableDiffusion / Latentbleeding Settings
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
@@ -56,17 +64,14 @@ fp_ckpt = "/home/chris/workspace/sd_ckpts/artiusV21_768.st"
 #fp_config = "/home/chris/workspace/sd_ckpts/artiusV21.yaml"
 fp_config = None
 fps = 24
-duration_single_trans = args.t_trans  # 2
-depth_strength = args.dstrength  # 0.82  # Specifies how deep (in terms of diffusion iterations the first branching happens)
 g_scale = 4
 num_steps = 20
-add_captions = args.no_captions
-t_compute_max_allowed = 12  # 8 # per segment
+t_compute_max_allowed = 12  # Determines number of intermediary steps in latent blending. 12 for high quality, 8 or lower for faster runtime
 high_res = False
+out_name = "out.mp4"
 watermark_path = "./techno3_alpha.png"
-upscale = args.high_res
 
-# %% Define vars for high-resoltion pass
+# %% Define vars for high-resolution pass
 fp_ckpt_hires = hf_hub_download(repo_id="stabilityai/stable-diffusion-x4-upscaler", filename="x4-upscaler-ema.ckpt")
 depth_strength_hires = 0.65
 num_inference_steps_hires = 100
@@ -74,25 +79,17 @@ nmb_branches_final_hires = 5
 
 # LLM Settings
 openai.api_key = open("openai_apikey", "r").read()
-# local_llama_path ="/home/chris/workspace/sd_ckpts/llama-2-70b-chat.Q5_K_M.gguf"
-
-temperature = args.temp
 max_tries = 3
-num_prompts = args.num_prompts  # 50 #12
 
 # Local LLM
-run_local = args.local_llm
 n_ctx = 2048  # Context window lenth
-n_gpu_layers = 35
+n_gpu_layers = 35  # Number of layers to push to the GPU.
 local_llama_path = "./llama-2-70b-chat.Q3_K_M.gguf"
-
-# Musicgen Options
-ai_music = args.ai_music
 
 # Debug options
 debug = False
 
-# Init local LLM model when needed#
+# Init local LLM model when needed
 llm = None
 if run_local:
     llm = Llama(model_path=local_llama_path, n_ctx=n_ctx, n_gpu_layers=n_gpu_layers)
@@ -141,6 +138,7 @@ else:
     # Create Prompts with GPT 3.5
     for i in range(max_tries):
         # If we have more than 30 prompts, we split up the generation
+        # TODO: Make the new story depend on the old one. Maybe use ChatGPT instead of InstructGPT?
         if num_prompts > 30:
             split_prompts = []
             for story in raw_stories:
@@ -199,28 +197,18 @@ lb = LatentBlending(sdh)
 lb.set_negative_prompt(get_negative_prompt(neg_prompt_inject))
 sdh.guidance_scale = g_scale
 sdh.num_inference_steps = num_steps
-seeds = np.random.randint(0, 954375479, num_prompts).tolist()
-
-# Specify a list of prompts below
-list_prompts = split_prompts
-
-# You can optionally specify the seeds
-# list_seeds = [954375479, 332539350, 956051013, 408831845, 250009012, 675588737]
-out_name = "out.mp4"
-
-# list_movie_parts = []
+seeds = np.random.randint(0, 954375479, num_prompts).tolist() # Use random seeds because why not?
 parts = []
-
 # Create transitions
-for i in tqdm(range(len(list_prompts) - 1), desc="LowRes Progress"):
+for i in tqdm(range(len(split_prompts) - 1), desc="LowRes Progress"):
     # For a multi transition we can save some computation time and recycle the latents
     if i == 0:
-        lb.set_prompt1(list_prompts[i])
-        lb.set_prompt2(list_prompts[i + 1])
+        lb.set_prompt1(split_prompts[i])
+        lb.set_prompt2(split_prompts[i + 1])
         recycle_img1 = False
     else:
         lb.swap_forward()
-        lb.set_prompt2(list_prompts[i + 1])
+        lb.set_prompt2(split_prompts[i + 1])
         recycle_img1 = True
 
     fp_movie_part = f"tmp_part_{str(i).zfill(3)}.mp4"
@@ -255,7 +243,6 @@ if upscale:
     list_movie_parts = [os.path.join(p, "movie_highres.mp4") for p in parts]
 else:
     list_movie_parts = [f"{p}.mp4" for p in parts]
-
 concatenate_movies(out_name, list_movie_parts)
 
 # Free up space, run gc on image models
