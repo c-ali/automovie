@@ -56,9 +56,11 @@ num_prompts = args.num_prompts
 ai_music = args.ai_music
 run_local = args.local_llm
 add_watermark = args.watermark
-presets = {"psytrance": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": 100,
+
+# You can choose one of these presets. If theme/prompt inject/neg. prompt_inject/music inject are specified, they will not be asked from the user
+presets = {"psytrance": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": 15,
                          "neg_prompt_inject": "(((Creepy))), ((Frightening)), Open Mouth, (((Bad Trip)))", "add_captions": False,
-                         "theme": "A dmt trip", "prompt_inject": "Alex Grey artistic", "music_inject": ""}}
+                         "theme": "A dmt trip", "visual_style": "Alex Grey artistic render", "music_inject": ""}}
 if args.preset != "":
     assert args.preset in presets.keys()
     globals().update(presets[args.preset])
@@ -89,6 +91,7 @@ nmb_branches_final_hires = 5
 # LLM Settings
 openai.api_key = open("openai_apikey", "r").read()
 max_tries = 3
+max_prompts_per_request = 15
 
 # Local LLM
 n_ctx = 2048  # Context window lenth
@@ -107,12 +110,12 @@ if debug:
     raw_story = debug_story
     split_story = remove_prefixes_and_split(debug_story)
     split_prompts = remove_prefixes_and_split(debug_prompts)
-    music_inject = prompt_inject = neg_prompt_inject = ""
+    music_inject = visual_style = neg_prompt_inject = ""
 else:
     if "theme" not in globals():
         theme = input("Please input the theme of the movie \n")
-    if "prompt_inject" not in globals():
-        prompt_inject = input("Input additional instructions for the prompts \n")
+    if "visual_style" not in globals():
+        visual_style = input("Indicate a visual style for the images \n")
     if "neg_prompt_inject" not in globals():
         neg_prompt_inject = input("Input additional instructions for the negative image prompt\n")
     if "music_inject" not in globals():
@@ -121,12 +124,12 @@ else:
     # Create a story matching the prompts also using GPT
     for i in range(max_tries):
         # ChatGPT cannot output more than 30 prompts at a time. For now we just create separated stories.
-        if num_prompts > 30:
-            num_generations, rest = divmod(num_prompts, 30)
+        if num_prompts > max_prompts_per_request:
+            num_generations, rest = divmod(num_prompts, max_prompts_per_request)
             raw_stories = []
             split_story = []
             for j in range(num_generations):
-                raw_story = create_story(theme, 30, temperature=temperature, llm=llm)
+                raw_story = create_story(theme, num_generations, temperature=temperature, llm=llm)
                 raw_stories.append(raw_story)
                 split_story = split_story + remove_prefixes_and_split(raw_story)
             raw_story = create_story(theme, rest, temperature=temperature, llm=llm)
@@ -152,14 +155,14 @@ else:
     for i in range(max_tries):
         # If we have more than 30 prompts, we split up the generation
         # TODO: Make the new story depend on the old one. Maybe use ChatGPT instead of InstructGPT?
-        if num_prompts > 30:
+        if num_prompts > max_prompts_per_request:
             split_prompts = []
             for story in raw_stories:
-                raw_prompts = create_prompts(story, temperature=temperature, llm=llm)
+                raw_prompts = create_image_prompts(story, visual_style, llm=llm)
                 split_prompts = split_prompts + remove_prefixes_and_split(raw_prompts)
 
         else:
-            raw_prompts = create_prompts(raw_story, temperature=temperature, llm=llm)
+            raw_prompts = create_image_prompts(raw_story, visual_style, llm=llm)
             split_prompts = remove_prefixes_and_split(raw_prompts)
 
         # Cut if too long or try again if too short
@@ -173,10 +176,10 @@ else:
             split_story = split_story[:num_prompts]
             break
 
-    # Use prompt inject
-    if prompt_inject != "":
+    # Hardfix: Append additionally the visualy style to every prompt b/c gpt-3.5 instruct is too stupid to apply the style to more than 5 prompts
+    if visual_style != "":
         for j in range(len(split_prompts)):
-            split_prompts[j] = prompt_inject + " " + split_prompts[j]
+            split_prompts[j] = split_prompts[j] + " " + visual_style
 
     # Print promtps
     print(f"Prompts:")
@@ -278,4 +281,4 @@ if os.path.exists("final_movie.mp4"):
     .run()
 )
 
-write_log(theme, prompt_inject, neg_prompt_inject, args.dstrength, args.t_trans)
+write_log(theme, visual_style, neg_prompt_inject, args.dstrength, args.t_trans)

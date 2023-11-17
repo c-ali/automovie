@@ -39,12 +39,22 @@ def get_music_desc(raw_story):
     return fr"Give me a simple, (short) description of a music track that would fit the following story {raw_story} e.g. '4/4 100bpm 320kbps 48khz, Industrial/Electronic Soundtrack, Dark, Intense, Sci-Fi'"
 
 
-def get_prompt_prompt(raw_story):
+def get_visual_prompt_old(raw_story):
     return f"Create a list of descriptions matching the following story {raw_story}. They should be (short, visual descriptions) of images that could illustrate the story." \
            f"The amount of items on the list should be the same and each description, seaparated by a newline, should match the corresponding story point." \
            f"Good examples of descriptions would be: 1. full body picture of one tall blond girl, model, with space buns hair style, she wear a black short, and black patterns tights ,black lace top with intricated yellow details, black ankle boots in a rooftop in Paris, masterpiece," \
            f"2. A moustached man with deep creases and wrinkles in his face, stunning ochre eyes, wild windswept long hair, taking a selfie near a faraway castle at sunset." \
            f"Close up of an adult woman as (Alice in Wonderland:1.1), dressed in tight attire, amidst an intense city landscape with a Blade Runner aesthetic, narrow street crowded with people, rain, steam, neon, dark, (small:1.5)"
+
+def get_visual_prompt(raw_story, visual_style):
+    return f'''An image of [adjective] [subject] [doing action], [creative lighting style], extremely detailed, ultra realistic, 8k high resolution,
+    in the style of [art medium 1], [art medium 2], [art medium 3], [famous art style 1], [famous art style 2], [famous art style 3].
+
+
+    (Write Stable diffusion prompts using the above formula as a list matching the story below.
+    The amount of items on the list should be the same and each description, seaparated by a newline, should match the corresponding story point.
+    {'Use art medium/style in the prompts that match the following style: ' + visual_style if visual_style != "" else ""}
+    Story: {raw_story}'''
 
 
 def get_llama_postprompt(what="story"):

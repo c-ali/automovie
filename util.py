@@ -134,17 +134,18 @@ def apply_watermark(lb, watermark_path="./watermark.png"):
 
 # LLM story, prompt and music recomendation functions
 # When a LLM is not None, these functions use a llama-cpp-python locally. Else, ChatGPT AI is used
-def create_prompts(raw_story, temperature=0.6, llm=None):
+def create_image_prompts(raw_story, visual_style, llm=None):
+    visual_prompt = get_visual_prompt(raw_story, visual_style)
     if llm is not None:
         llama_postprompt = get_llama_postprompt("visual description of the story")
-        ret = llm(get_prompt_prompt(raw_story)+llama_postprompt, max_tokens=2500, stop=["Q:"], echo=True)["choices"][0]["text"]
+        ret = llm(visual_prompt + llama_postprompt, max_tokens=2500, stop=["Q:"], echo=True)["choices"][0]["text"]
         ret = get_substring_after(ret, llama_postprompt)
     else:
         ret = openai.Completion.create(
         model="gpt-3.5-turbo-instruct",
-        temperature=0.7,
-        prompt=get_prompt_prompt(raw_story),
-        max_tokens=2500,
+        temperature=0.6,
+        prompt= visual_prompt,
+        max_tokens=4096 - len(visual_prompt),
     ).choices[0].text
     return ret
 
