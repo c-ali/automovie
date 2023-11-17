@@ -48,11 +48,13 @@ args = parser.parse_args()
 
 # StableDiffusion / Latentbleeding Settings
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
-fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
+# fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/f_model_v1-5.st"
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/_deliberate_v1-5.st"
-
+fp_ckpt = "/home/chris/workspace/sd_ckpts/artiusV21_768.st"
+#fp_config = "/home/chris/workspace/sd_ckpts/artiusV21.yaml"
+fp_config = None
 fps = 24
 duration_single_trans = args.t_trans  # 2
 depth_strength = args.dstrength  # 0.82  # Specifies how deep (in terms of diffusion iterations the first branching happens)
@@ -99,10 +101,11 @@ if debug:
     raw_story = debug_story
     split_story = remove_prefixes_and_split(debug_story)
     split_prompts = remove_prefixes_and_split(debug_prompts)
-    music_inject = prompt_inject = ""
+    music_inject = prompt_inject = neg_prompt_inject = ""
 else:
     theme = input("Please input the theme of the movie \n")
     prompt_inject = input("Input additional instructions for the prompts \n")
+    neg_prompt_inject = input("Input additional instructions for the negative image prompt\n")
     music_inject = input("Manually set the music to this song \n")
     print("Generating Story and Prompts...")
     # Create a story matching the prompts also using GPT
@@ -189,11 +192,11 @@ print("Generating movie...")
 if len(split_story) > 1:
     split_story = [split_story[0] + " " + split_story[1]] + split_story[2:]
 
-sdh = StableDiffusionHolder(fp_ckpt=fp_ckpt, fp_config=None)
+sdh = StableDiffusionHolder(fp_ckpt=fp_ckpt, fp_config=fp_config)
 lb = LatentBlending(sdh)
 
 # Add default negative prompt
-lb.set_negative_prompt(neg_prompt)
+lb.set_negative_prompt(get_negative_prompt(neg_prompt_inject))
 sdh.guidance_scale = g_scale
 sdh.num_inference_steps = num_steps
 seeds = np.random.randint(0, 954375479, num_prompts).tolist()
@@ -275,4 +278,4 @@ if os.path.exists("final_movie.mp4"):
     .run()
 )
 
-write_log(theme, prompt_inject, args.dstrength, args.t_trans)
+write_log(theme, prompt_inject, neg_prompt_inject, args.dstrength, args.t_trans)
