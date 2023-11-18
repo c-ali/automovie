@@ -42,6 +42,8 @@ parser.add_argument('--high_res', action='store_true',
                     help='Run 4x Upscaler')
 parser.add_argument('--temp', type=float,
                     help='Temperature for the language model', default=1.2)  # 0.8)
+parser.add_argument('--tmax', type=int,
+                    help='Time resolution of the morph.', default=12)  
 parser.add_argument('--dstrength', type=float,
                     help='Depth strength of the model', default=0.75)   # Specifies how deep (in terms of diffusion iterations the first branching happens). 0.75 for alpha blendy, 0.55 for buttersmooth
 parser.add_argument('--preset', type=str,
@@ -56,16 +58,37 @@ num_prompts = args.num_prompts
 ai_music = args.ai_music
 run_local = args.local_llm
 add_watermark = args.watermark
-presets = {"psytrance": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": 100,
+t_compute_max_allowed = args.tmax  # Determines number of intermediary steps in latent blending. 12 for high quality, 8 or lower for faster runtime
+nprompts = 600
+presets = {"psy1": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": nprompts,
                          "neg_prompt_inject": "(((Creepy))), ((Frightening)), Open Mouth, (((Bad Trip)))", "add_captions": False,
-                         "theme": "A dmt trip", "prompt_inject": "Alex Grey artistic", "music_inject": ""}}
+                         "theme": "A voyage through a psychedelic alternate universe. The story should describe the strange but "
+                                  "beautiful things and creatures you can encounter there.",
+                         "prompt_inject": "Alex Grey 3D Render", "music_inject": ""},
+           "psy2": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": nprompts,
+                         "neg_prompt_inject": "(((Creepy))), ((Frightening)), Open Mouth, (((Bad Trip)))",
+                         "add_captions": False,
+                         "theme": "A DMT Trip in a bright colorful dreamland",
+                         "prompt_inject": "Acid Psychedelic 3D Artistic Render", "music_inject": ""},
+           "techno1": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": nprompts,
+                    "neg_prompt_inject": "(Creepy), Open Mouth, (((Bad Trip)))",
+                    "add_captions": False,
+                    "theme": "An alien rave",
+                    "prompt_inject": "Dark Techno Industrial Style, Geometric shapes.", "music_inject": ""},
+           "techno2": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False,
+                       "num_prompts": nprompts,
+                       "neg_prompt_inject": "(Creepy), Open Mouth, (((Bad Trip)))",
+                       "add_captions": False,
+                       "theme": "An underground techno rave",
+                       "prompt_inject": "Dark Techno Style, Geometric shapes.", "music_inject": ""}
+           }
 if args.preset != "":
     assert args.preset in presets.keys()
     globals().update(presets[args.preset])
 
 # StableDiffusion / Latentbleeding Settings
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
-# fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
+#fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/f_model_v1-5.st"
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/_deliberate_v1-5.st"
@@ -75,7 +98,6 @@ fp_config = None
 fps = 24
 g_scale = 4
 num_steps = 20
-t_compute_max_allowed = 12  # Determines number of intermediary steps in latent blending. 12 for high quality, 8 or lower for faster runtime
 high_res = False
 out_name = "out.mp4"
 watermark_path = "./techno3_alpha.png"
@@ -97,7 +119,7 @@ local_llama_path = "./llama-2-70b-chat.Q3_K_M.gguf"
 
 # Debug options
 debug = False
-
+print(f"DSTRENGTH {depth_strength}")
 # Init local LLM model when needed
 llm = None
 if run_local:
@@ -278,4 +300,4 @@ if os.path.exists("final_movie.mp4"):
     .run()
 )
 
-write_log(theme, prompt_inject, neg_prompt_inject, args.dstrength, args.t_trans)
+write_log(theme, prompt_inject, neg_prompt_inject, depth_strength, duration_single_trans)
