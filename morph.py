@@ -1,4 +1,5 @@
 from util import *
+from presets import presets
 from prompts import *
 import numpy as np
 # latent bleeding imports
@@ -29,7 +30,7 @@ parser = argparse.ArgumentParser(
 parser.add_argument('-t', '--t_trans', type=int,
                     help='Duration of a single transition', default=10) # 2 seconds for fast, 6 seconds for slow
 parser.add_argument('-p', '--num_prompts', type=int,
-                    help='Total number of prompts for SD', default=15)
+                    help='Total number of prompts for SD', default=30)
 parser.add_argument('--no_captions', action='store_false',
                     help='Do not add captions to the movie')
 parser.add_argument('-l', '--local_llm', action='store_true',
@@ -49,6 +50,8 @@ parser.add_argument('--dstrength', type=float,
 parser.add_argument('--preset', type=str,
                     help='Run a pre-configured mode e.g. psytrance', default="")
 args = parser.parse_args()
+
+# update other args
 upscale = args.high_res
 add_captions = args.no_captions
 duration_single_trans = args.t_trans
@@ -59,29 +62,9 @@ ai_music = args.ai_music
 run_local = args.local_llm
 add_watermark = args.watermark
 t_compute_max_allowed = args.tmax  # Determines number of intermediary steps in latent blending. 12 for high quality, 8 or lower for faster runtime
-nprompts = 600
-presets = {"psy1": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": nprompts,
-                         "neg_prompt_inject": "(((Creepy))), ((Frightening)), Open Mouth, (((Bad Trip)))", "add_captions": False,
-                         "theme": "A voyage through a psychedelic alternate universe. The story should describe the strange but "
-                                  "beautiful things and creatures you can encounter there.",
-                         "prompt_inject": "Alex Grey 3D Render", "music_inject": ""},
-           "psy2": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": nprompts,
-                         "neg_prompt_inject": "(((Creepy))), ((Frightening)), Open Mouth, (((Bad Trip)))",
-                         "add_captions": False,
-                         "theme": "A DMT Trip in a bright colorful dreamland",
-                         "prompt_inject": "Acid Psychedelic 3D Artistic Render", "music_inject": ""},
-           "techno1": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False, "num_prompts": nprompts,
-                    "neg_prompt_inject": "(Creepy), Open Mouth, (((Bad Trip)))",
-                    "add_captions": False,
-                    "theme": "An alien rave",
-                    "prompt_inject": "Dark Techno Industrial Style, Geometric shapes.", "music_inject": ""},
-           "techno2": {"duration_single_trans": 6, "depth_strength": 0.55, "add_watermark": False,
-                       "num_prompts": nprompts,
-                       "neg_prompt_inject": "(Creepy), Open Mouth, (((Bad Trip)))",
-                       "add_captions": False,
-                       "theme": "An underground techno rave",
-                       "prompt_inject": "Dark Techno Style, Geometric shapes.", "music_inject": ""}
-           }
+
+# use presets
+
 if args.preset != "":
     assert args.preset in presets.keys()
     globals().update(presets[args.preset])
@@ -90,11 +73,12 @@ if args.preset != "":
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
 #fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/f_model_v1-5.st"
-# fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
+#fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
 # fp_ckpt = "/home/chris/workspace/sd_ckpts/_deliberate_v1-5.st"
 fp_ckpt = "/home/chris/workspace/sd_ckpts/artiusV21_768.st"
-#fp_config = "/home/chris/workspace/sd_ckpts/artiusV21.yaml"
-fp_config = None
+fp_ckpt = "/home/chris/workspace/sd_ckpts/digital_diffusion_768.st"
+fp_config = "/home/chris/workspace/sd_ckpts/artiusV21.yaml"
+#fp_config = None
 fps = 24
 g_scale = 4
 num_steps = 20
