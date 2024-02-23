@@ -55,12 +55,12 @@ def split_after_n_chars(text, n=40):
         split_lines.append(line.strip())
 
     return split_lines
-def add_caption_to_frame(img, caption, add_linebreaks=True, high_res=False):
+def add_caption_to_frame(img, caption, add_linebreaks=True, resolution=(1024,1024)):
     # Write some Text^
     font = cv2.FONT_HERSHEY_SIMPLEX
-    bottomLeftCornerOfText = (15, 750 if high_res else 500)
-    dy = 20
-    fontScale = 0.55
+    bottomLeftCornerOfText = (15, resolution[0]-24)
+    fontScale = 1
+    dy = 30 * fontScale
     fontColor = (255,255,255)
     thickness = 2
     lineType = 3
@@ -74,8 +74,7 @@ def add_caption_to_frame(img, caption, add_linebreaks=True, high_res=False):
                     thickness,
                     lineType)
     else:
-        fontScale = 0.7
-        chars_to_split = 60 if high_res else 40
+        chars_to_split = 58 * resolution[0]/1024
         broken_caption = split_after_n_chars(caption, chars_to_split)
         for i, text_line in enumerate(broken_caption):
             y = bottomLeftCornerOfText[1] + (i -len(broken_caption)) * dy
@@ -123,10 +122,10 @@ def add_watermark(img, margin=0, watermark_path="./watermark.png"):
         img[top_left_y:top_left_y + watermark_height, top_left_x:top_left_x + watermark_width] = watermark
 
 
-def apply_caption(lb, caption, add_linebreaks=True, high_res=False):
+def apply_caption(lb, caption, add_linebreaks=True):
     for i in range(len(lb.tree_final_imgs)):
         arr = np.array(lb.tree_final_imgs[i].copy())
-        add_caption_to_frame(arr, caption, add_linebreaks=add_linebreaks, high_res=high_res)
+        add_caption_to_frame(arr, caption, add_linebreaks=add_linebreaks)
         lb.tree_final_imgs[i] = arr
 
 def apply_watermark(lb, watermark_path="./watermark.png"):

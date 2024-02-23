@@ -54,7 +54,10 @@ parser.add_argument('--turbo', type=bool,
                     help='Use a sdxl turbo.', default=False)
 parser.add_argument('--res', type=int, nargs=2,
                     help='Output resolution.', default=(1024, 1024))
-
+parser.add_argument('--steps', type=int,
+                    help='Steps used in the diffusion process.', default=20)
+parser.add_argument('--gscale', type=float,
+                    help='Guidance scale used in the diffusion process.', default=4)
 args = parser.parse_args()
 
 # update other args
@@ -81,8 +84,8 @@ if args.preset != "":
 custom_model_path = "/home/chris/workspace/sd_ckpts/juggernaut_sdxl/"
 #fp_config = None
 fps = 24
-g_scale = 4
-num_steps = 20
+g_scale = args.gscale
+num_steps = args.steps
 high_res = False
 out_name = "out.mp4"
 watermark_path = "./techno3_alpha.png"
@@ -250,7 +253,7 @@ for i in tqdm(range(len(split_prompts) - 1), desc="LowRes Progress"):
     )
     # Apply captions & save movie
     if add_captions:
-        apply_caption(be, split_story[i], high_res=high_res)
+        apply_caption(be, split_story[i])
     if add_watermark:
         apply_watermark(be, watermark_path=watermark_path)
     be.write_movie_transition(fp_movie_part, duration_single_trans * 2 if i == 0 else duration_single_trans, fps=fps)
