@@ -13,12 +13,11 @@ import warnings
 
 warnings.filterwarnings('ignore')
 from gen_music import gen_music
-from latent_blending import LatentBlending
-from stable_diffusion_holder import StableDiffusionHolder
+from diffusers import AutoPipelineForText2Image
+from latentblending.blending_engine import BlendingEngine
 from movie_util import concatenate_movies
 from huggingface_hub import hf_hub_download
 # chatgpt / llm imports
-import openai
 from llama_cpp import Llama
 import gc
 import argparse
@@ -44,14 +43,23 @@ parser.add_argument('--high_res', action='store_true',
 parser.add_argument('--temp', type=float,
                     help='Temperature for the language model', default=1.2)  # 0.8)
 parser.add_argument('--tmax', type=int,
-                    help='Time resolution of the morph.', default=12)  
+                    help='Time resolution of the morph.', default=12)
 parser.add_argument('--dstrength', type=float,
                     help='Depth strength of the model', default=0.75)   # Specifies how deep (in terms of diffusion iterations the first branching happens). 0.75 for alpha blendy, 0.55 for buttersmooth
 parser.add_argument('--preset', type=str,
                     help='Run a pre-configured mode e.g. psytrance', default="")
+parser.add_argument('--debug', type=bool,
+                    help='Use a dummy story.', default=False)
+parser.add_argument('--turbo', type=bool,
+                    help='Use a sdxl turbo.', default=False)
+parser.add_argument('--res', type=int, nargs=2,
+                    help='Output resolution.', default=(1024, 1024))
+
 args = parser.parse_args()
 
 # update other args
+debug = args.debug
+resolution = args.res
 upscale = args.high_res
 add_captions = args.no_captions
 duration_single_trans = args.t_trans
@@ -61,7 +69,7 @@ num_prompts = args.num_prompts
 ai_music = args.ai_music
 run_local = args.local_llm
 add_watermark = args.watermark
-t_compute_max_allowed = args.tmax  # Determines number of intermediary steps in latent blending. 12 for high quality, 8 or lower for faster runtime
+t_compute_max_allowed = None if args.turbo else args.tmax  # Determines number of intermediary steps in latent blending. 12 for high quality, 8 or lower for faster runtime
 
 # use presets
 
@@ -70,14 +78,7 @@ if args.preset != "":
     globals().update(presets[args.preset])
 
 # StableDiffusion / Latentbleeding Settings
-# fp_ckpt = "/home/chris/workspace/sd_ckpts/deliberatev3_v1-5.st"
-#fp_ckpt = "/home/chris/workspace/sd_ckpts/photon_v1-5.st"
-# fp_ckpt = "/home/chris/workspace/sd_ckpts/f_model_v1-5.st"
-#fp_ckpt = "/home/chris/workspace/sd_ckpts/h_model_v1-5.st"
-# fp_ckpt = "/home/chris/workspace/sd_ckpts/_deliberate_v1-5.st"
-fp_ckpt = "/home/chris/workspace/sd_ckpts/artiusV21_768.st"
-fp_ckpt = "/home/chris/workspace/sd_ckpts/digital_diffusion_768.st"
-fp_config = "/home/chris/workspace/sd_ckpts/artiusV21.yaml"
+custom_model_path = "/home/chris/workspace/sd_ckpts/juggernaut_sdxl/"
 #fp_config = None
 fps = 24
 g_scale = 4
@@ -93,7 +94,6 @@ num_inference_steps_hires = 100
 nmb_branches_final_hires = 5
 
 # LLM Settings
-openai.api_key = open("openai_apikey", "r").read()
 max_tries = 3
 
 # Local LLM
@@ -102,7 +102,6 @@ n_gpu_layers = 35  # Number of layers to push to the GPU.
 local_llama_path = "./llama-2-70b-chat.Q3_K_M.gguf"
 
 # Debug options
-debug = False
 print(f"DSTRENGTH {depth_strength}")
 # Init local LLM model when needed
 llm = None
@@ -110,6 +109,7 @@ if run_local:
     llm = Llama(model_path=local_llama_path, n_ctx=n_ctx, n_gpu_layers=n_gpu_layers)
 
 if debug:
+    theme = "debug theme"
     raw_story = debug_story
     split_story = remove_prefixes_and_split(debug_story)
     split_prompts = remove_prefixes_and_split(debug_prompts)
@@ -209,53 +209,62 @@ print("Generating movie...")
 if len(split_story) > 1:
     split_story = [split_story[0] + " " + split_story[1]] + split_story[2:]
 
-sdh = StableDiffusionHolder(fp_ckpt=fp_ckpt, fp_config=fp_config)
-lb = LatentBlending(sdh)
+if args.turbo:
+    pretrained_model_name_or_path = "stabilityai/sdxl-turbo"
+else:
+    pretrained_model_name_or_path = custom_model_path#"stabilityai/stable-diffusion-xl-base-1.0"
+
+pipe = AutoPipelineForText2Image.from_pretrained(pretrained_model_name_or_path, torch_dtype=torch.float16, variant="fp16")
+pipe.to('cuda')
+be = BlendingEngine(pipe, do_compile=True)
+
 
 # Add default negative prompt
-lb.set_negative_prompt(get_negative_prompt(neg_prompt_inject))
-sdh.guidance_scale = g_scale
-sdh.num_inference_steps = num_steps
+be.set_negative_prompt(get_negative_prompt(neg_prompt_inject))
+be.guidance_scale = g_scale
+be.num_inference_steps = num_steps
+be.set_branching(depth_strength=depth_strength, t_compute_max_allowed=t_compute_max_allowed, nmb_max_branches=None)
+be.set_dimensions(resolution)
 seeds = np.random.randint(0, 954375479, num_prompts).tolist() # Use random seeds because why not?
 parts = []
 # Create transitions
 for i in tqdm(range(len(split_prompts) - 1), desc="LowRes Progress"):
+    blockPrint()
     # For a multi transition we can save some computation time and recycle the latents
     if i == 0:
-        lb.set_prompt1(split_prompts[i])
-        lb.set_prompt2(split_prompts[i + 1])
+        be.set_prompt1(split_prompts[i])
+        be.set_prompt2(split_prompts[i + 1])
         recycle_img1 = False
     else:
-        lb.swap_forward()
-        lb.set_prompt2(split_prompts[i + 1])
+        be.swap_forward()
+        be.set_prompt2(split_prompts[i + 1])
         recycle_img1 = True
 
     fp_movie_part = f"tmp_part_{str(i).zfill(3)}.mp4"
     part_nr = f"tmp_part_{str(i).zfill(3)}"
 
-    # Run latent blending
-    lb.run_transition(
+    # Run latent blending and block console output from there
+    be.run_transition(
         recycle_img1=recycle_img1,
-        depth_strength=depth_strength,
-        t_compute_max_allowed=t_compute_max_allowed,
         fixed_seeds=seeds[i:i + 2]
     )
-
     # Apply captions & save movie
     if add_captions:
-        apply_caption(lb, split_story[i], high_res=high_res)
+        apply_caption(be, split_story[i], high_res=high_res)
     if add_watermark:
-        apply_watermark(lb, watermark_path=watermark_path)
-    lb.write_movie_transition(fp_movie_part, duration_single_trans * 2 if i == 0 else duration_single_trans, fps=fps)
+        apply_watermark(be, watermark_path=watermark_path)
+    be.write_movie_transition(fp_movie_part, duration_single_trans * 2 if i == 0 else duration_single_trans, fps=fps)
     if upscale:
-        lb.write_imgs_transition(part_nr)
+        be.write_imgs_transition(part_nr)
     parts.append(part_nr)
+    enablePrint()
 
 if upscale:
-    sdh = StableDiffusionHolder(fp_ckpt_hires)
-    lb = LatentBlending(sdh)
-    for dp_part in tqdm(parts, desc="HighRes Progress"):
-        lb.run_upscaling(dp_part, depth_strength_hires, num_inference_steps_hires, nmb_branches_final_hires)
+    pass
+    #TODO: UPDATE TO NEW VERSION
+    #lb = LatentBlending(sdh)
+    #for dp_part in tqdm(parts, desc="HighRes Progress"):
+    #    lb.run_upscaling(dp_part, depth_strength_hires, num_inference_steps_hires, nmb_branches_final_hires)
 
 # Finally, concatente the result
 if upscale:
@@ -265,7 +274,7 @@ else:
 concatenate_movies(out_name, list_movie_parts)
 
 # Free up space, run gc on image models
-del sdh, lb
+del be
 
 # Add sound (automusic from Youtube) / MusicGen
 if ai_music:

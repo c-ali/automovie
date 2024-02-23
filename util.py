@@ -1,8 +1,11 @@
 import re
+import sys
 import cv2
-import openai
-from pytube import Search
 import os
+from openai import OpenAI
+
+client = OpenAI()
+from pytube import Search
 from pathlib import Path
 from prompts import *
 import numpy as np
@@ -122,7 +125,7 @@ def add_watermark(img, margin=0, watermark_path="./watermark.png"):
 
 def apply_caption(lb, caption, add_linebreaks=True, high_res=False):
     for i in range(len(lb.tree_final_imgs)):
-        arr = lb.tree_final_imgs[i].copy()
+        arr = np.array(lb.tree_final_imgs[i].copy())
         add_caption_to_frame(arr, caption, add_linebreaks=add_linebreaks, high_res=high_res)
         lb.tree_final_imgs[i] = arr
 
@@ -140,12 +143,10 @@ def create_prompts(raw_story, temperature=0.6, llm=None):
         ret = llm(get_prompt_prompt(raw_story)+llama_postprompt, max_tokens=2500, stop=["Q:"], echo=True)["choices"][0]["text"]
         ret = get_substring_after(ret, llama_postprompt)
     else:
-        ret = openai.Completion.create(
-        model="gpt-3.5-turbo-instruct",
+        ret = client.completions.create(model="gpt-3.5-turbo-instruct",
         temperature=0.7,
         prompt=get_prompt_prompt(raw_story),
-        max_tokens=2500,
-    ).choices[0].text
+        max_tokens=2500).choices[0].text
     return ret
 
 def create_story(theme, num_prompts, temperature=0.6, llm=None):
@@ -154,12 +155,10 @@ def create_story(theme, num_prompts, temperature=0.6, llm=None):
         ret = llm(get_story_prompt(theme, num_prompts)+llama_postprompt, max_tokens=2500, stop=["Q:"], echo=True)["choices"][0]["text"]
         ret = get_substring_after(ret, llama_postprompt)
     else:
-        ret = openai.Completion.create(
-        model="gpt-3.5-turbo-instruct",
+        ret = client.completions.create(model="gpt-3.5-turbo-instruct",
         temperature=temperature,
         prompt=get_story_prompt(theme, num_prompts),
-        max_tokens=3000,
-    ).choices[0].text
+        max_tokens=3000).choices[0].text
     return ret
 
 def create_music_recommendation(raw_story, llm=None, gen_music = False):
@@ -170,12 +169,10 @@ def create_music_recommendation(raw_story, llm=None, gen_music = False):
         ret = llm(full_prompt, max_tokens=50, stop=["Q:"], echo=True)["choices"][0]["text"]
         ret = get_substring_after(ret, postprompt)
     else:
-        ret = openai.Completion.create(
-        model="gpt-3.5-turbo-instruct",
+        ret = client.completions.create(model="gpt-3.5-turbo-instruct",
         temperature=0.6,
         prompt=full_prompt,
-        max_tokens=100,
-    ).choices[0].text
+        max_tokens=100).choices[0].text
     return ret
 
 # Youtube AutoMusic
@@ -260,3 +257,10 @@ def write_log( theme, prompt_inject, neg_prompt_inject, dstrength, t_trans, outp
 
         # Truncate the file to the current position in case the new data is shorter than the old
         file.truncate()
+
+def blockPrint():
+    sys.stdout = open(os.devnull, 'w')
+
+# Restore
+def enablePrint():
+    sys.stdout = sys.__stdout__
