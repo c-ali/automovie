@@ -15,11 +15,13 @@ python morph.py --preset zengarden  # Background visual mode with the "zengarden
 ### Short Horror Movie
 Check out this short horror movie clip:
 
+![](media/horror.gif)
 https://github.com/c-ali/automovie/blob/main/media/horror.mp4
 
 ### Beautiful Visual (No Subtitles)
 The theme is spirals in nature:
 
+![](media/spiral.gif)
 https://github.com/c-ali/automovie/blob/main/media/spiral_short.mp4
 
 ## Overview
