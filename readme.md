@@ -10,6 +10,17 @@ AutoMovie is an artistic project that automatically generates cinematic clips fr
 python morph.py  # Interactive movie mode
 python morph.py --preset zengarden  # Background visual mode with the "zengarden" preset
    ```
+## Video Examples
+
+### Short Horror Movie
+Check out this short horror movie clip:
+
+https://github.com/c-ali/automovie/blob/main/media/horror.mp4
+
+### Beautiful Visual (No Subtitles)
+The theme is spirals in nature:
+
+https://github.com/c-ali/automovie/blob/main/media/spiral_short.mp4
 
 ## Overview
 
@@ -32,6 +43,7 @@ This project provides a platform for creative exploration with AI-driven content
 - SD Turbo support for almost real-time video generation
 - User can chose between local models and API for LLMs
 - Multiple presets for fast generation (i.e. short movie, music festival visuals etc.)
+- Watermarking the final video is supported
 
 ### Text Generation
 
@@ -77,6 +89,9 @@ The final stage combines the generated text as subtitles, images, and audio to t
 ### Presets
 Can be found and expanded in the "presets.py" file.
 
+
+
 ### License
 
 This project is licensed under the MIT License. See the LICENSE file for more details.
+
