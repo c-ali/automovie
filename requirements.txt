@@ -1,0 +1,7 @@
+torch
+opencv-python
+diffusers==0.25.0
+transformers
+numpy
+tqdm
+llama-cpp-python
