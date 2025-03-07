@@ -81,8 +81,14 @@ The final stage combines the generated text as subtitles, images, and audio to t
 2. Install dependencies
    ```bash
    pip install -r dependencies.txt
-   
-3. Launch script
+      ```
+3. Set OpenAI API key if a remote LLM model is used
+   ```bash
+   export OPENAI_API_KEY=insert_your_key_here
+      ```
+   You can obtain your personal OpenAI API key on the [OpenAI Website](https://platform.openai.com/settings/organization/api-keys)
+
+4. Launch script
     ```bash
       python morph.py     # Launch script 
       python morph.py -h  # For help with arguments
@@ -91,9 +97,13 @@ The final stage combines the generated text as subtitles, images, and audio to t
 ### Presets
 Can be found and expanded in the "presets.py" file.
 
-
-
 ### License
 
 This project is licensed under the MIT License. See the LICENSE file for more details.
 
+### Issues
+Error messages like the following can be resolved as described [here](https://github.com/easydiffusion/easydiffusion/issues/1851#issuecomment-2425265522
+)
+   ```bash
+ImportError: cannot import name cached_download from huggingface_hub (/home/workspace/automovie/venv/lib/python3.9/site-packages/huggingface_hub/__init__.py)  
+      

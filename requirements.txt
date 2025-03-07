@@ -5,3 +5,8 @@ transformers
 numpy
 tqdm
 llama-cpp-python
+openai
+pytube
+ffmpeg
+scipy
+huggingface-hub
