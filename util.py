@@ -11,6 +11,8 @@ from prompts import *
 import numpy as np
 import json
 from datetime import datetime
+from pathlib import Path
+from yt_dlp import YoutubeDL
 
 def remove_prefixes_and_split(text):
     # Split the text by newline
@@ -177,34 +179,45 @@ def create_music_recommendation(raw_story, llm=None, gen_music = False):
 # Youtube AutoMusic
 
 def youtube2mp3(query):
+    # Ensure query is a string (not a list like ["song name"])
+    if isinstance(query, list):
+        query = " ".join(query)
+
+    # Clean up previous file if it exists
     if os.path.exists("soundtrack.mp3"):
         os.remove("soundtrack.mp3")
 
-    i = 0
-    search = Search(query).results
+    # yt_dlp download options
+    ydl_opts = {
+        'format': 'bestaudio/best',
+        'outtmpl': 'temp_audio.%(ext)s',
+        'noplaylist': True,
+        'quiet': True,
+        'default_search': 'ytsearch1',
+        'postprocessors': [{
+            'key': 'FFmpegExtractAudio',
+            'preferredcodec': 'mp3',
+            'preferredquality': '192',
+        }],
+    }
 
-    if len(search) == 0:
-        raise RuntimeError("Song could not be found")
-    # Try to download videos in order of search
-    while True:
-        yt = search[i]
-        try:
-            video = yt.streams.filter(abr='160kbps').last()
-            out_file = video.download(output_path="./")
+    # Attempt to download and convert
+    with YoutubeDL(ydl_opts) as ydl:
+        info = ydl.extract_info(query, download=True)
+        print(f"Downloaded: {info.get('title', 'Unknown Title')}")
+
+    # Rename the downloaded file to soundtrack.mp3
+    for ext in ["mp3", "m4a", "webm"]:
+        temp_path = Path(f"temp_audio.{ext}")
+        if temp_path.exists():
+            temp_path.rename("soundtrack.mp3")
             break
-        except:
-            i += 1
-            if i == len(query):
-                break
 
-    new_file = Path(f'soundtrack.mp3')
-    os.rename(out_file, new_file)
-
-    ##@ Check success of download
-    if new_file.exists():
-        print(f'{yt.title} has been successfully downloaded.')
+    # Final check
+    if Path("soundtrack.mp3").exists():
+        print("Download successful.")
     else:
-        print(f'ERROR: {yt.title}could not be downloaded!')
+        raise RuntimeError("Download failed.")
 
 def get_substring_after(input_str, delimiter):
     """
