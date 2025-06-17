@@ -11,6 +11,10 @@ torch.backends.cudnn.benchmark = False
 torch.set_grad_enabled(False)
 import warnings
 
+# this is needed as latentblending is in a subfolder
+import sys
+sys.path.append(os.path.join(os.path.dirname(__file__), 'latentblending'))
+
 warnings.filterwarnings('ignore')
 from gen_music import gen_music
 from diffusers import AutoPipelineForText2Image
@@ -21,6 +25,7 @@ from huggingface_hub import hf_hub_download
 from llama_cpp import Llama
 import gc
 import argparse
+
 
 parser = argparse.ArgumentParser(
     prog='AutoMovie',
