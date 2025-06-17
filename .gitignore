@@ -1,0 +1,12 @@
+*.mp4
+openai_apikey
+*.mp3
+venv/
+*.webm
+*.txt
+*.png
+*.gguf
+*.wav
+.idea/
+__pycache__/
+log.json
